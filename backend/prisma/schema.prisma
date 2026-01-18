@@ -1,0 +1,222 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============= ENUMS (convertidos a strings para SQLite) =============
+
+// ============= MODELOS =============
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  nombre    String
+  apellidos String
+  role      String @default("STUDENT") // ADMIN o STUDENT
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  testAttempts TestAttempt[]
+  questionReports QuestionReport[]
+
+  @@map("users")
+}
+
+model Oposicion {
+  id        String   @id @default(cuid())
+  nombre    String
+  codigo    String   @unique
+  descripcion String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  temas Tema[]
+  testAttempts TestAttempt[]
+
+  @@map("oposiciones")
+}
+
+model Tema {
+  id        String   @id @default(cuid())
+  nombre    String
+  descripcion String?
+  
+  oposicionId String
+  oposicion   Oposicion @relation(fields: [oposicionId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  preguntas Pregunta[]
+  statistics ThemaStatistic[]
+
+  @@unique([oposicionId, nombre])
+  @@map("temas")
+}
+
+model Pregunta {
+  id        String   @id @default(cuid())
+  titulo    String
+  enunciado String
+  opcionA   String
+  opcionB   String
+  opcionC   String
+  opcionD   String?
+  respuestaCorrecta String // A, B, C, D
+  explicacion String?
+  dificultad String @default("MEDIUM") // EASY, MEDIUM, HARD
+  status    String @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  
+  temaId    String
+  tema      Tema @relation(fields: [temaId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  testQuestions TestQuestion[]
+  questionReports QuestionReport[]
+  statistics QuestionStatistic[]
+
+  @@map("preguntas")
+}
+
+model Test {
+  id        String   @id @default(cuid())
+  nombre    String
+  cantidadPreguntas Int
+  tiempoLimite Int? // en minutos
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  questions TestQuestion[]
+  attempts  TestAttempt[]
+
+  @@map("tests")
+}
+
+model TestQuestion {
+  id        String   @id @default(cuid())
+  
+  testId    String
+  test      Test @relation(fields: [testId], references: [id], onDelete: Cascade)
+  
+  preguntaId String
+  pregunta   Pregunta @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  
+  orden     Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([testId, preguntaId])
+  @@map("test_questions")
+}
+
+model TestAttempt {
+  id        String   @id @default(cuid())
+  
+  testId    String
+  test      Test @relation(fields: [testId], references: [id], onDelete: Cascade)
+  
+  oposicionId String
+  oposicion   Oposicion @relation(fields: [oposicionId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  respuestas AttemptResponse[]
+  
+  puntaje   Int
+  cantidadCorrectas Int
+  cantidadIncorrectas Int
+  
+  tiempoInicio DateTime
+  tiempoFin    DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("test_attempts")
+}
+
+model AttemptResponse {
+  id        String   @id @default(cuid())
+  
+  attemptId String
+  attempt   TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  
+  preguntaId String
+  respuestaUsuario String // A, B, C, D
+  esCorrecta Boolean
+  
+  createdAt DateTime @default(now())
+
+  @@unique([attemptId, preguntaId])
+  @@map("attempt_responses")
+}
+
+model QuestionReport {
+  id        String   @id @default(cuid())
+  
+  preguntaId String
+  pregunta   Pregunta @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  motivo    String
+  descripcion String?
+  estado    String @default("PENDIENTE") // PENDIENTE, REVISADO, RESUELTO
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("question_reports")
+}
+
+model QuestionStatistic {
+  id        String   @id @default(cuid())
+  
+  preguntaId String @unique
+  pregunta   Pregunta @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  
+  vecesRespondida Int @default(0)
+  vecesCorrecta   Int @default(0)
+  porcentajeAcierto Float @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("question_statistics")
+}
+
+model ThemaStatistic {
+  id        String   @id @default(cuid())
+  
+  temaId    String @unique
+  tema      Tema @relation(fields: [temaId], references: [id], onDelete: Cascade)
+  
+  preguntasTotal Int @default(0)
+  preguntasEstudiadas Int @default(0)
+  porcentajeEstudio Float @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("thema_statistics")
+}

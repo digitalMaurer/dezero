@@ -1,0 +1,202 @@
+import { PrismaClient } from '@prisma/client';
+import { AppError } from '../middleware/errorHandler.js';
+import { logger } from '../utils/logger.js';
+
+const prisma = new PrismaClient();
+
+export const getTemas = async (req, res, next) => {
+  try {
+    const { oposicionId } = req.query;
+
+    const where = oposicionId ? { oposicionId } : {};
+
+    const temas = await prisma.tema.findMany({
+      where,
+      include: {
+        oposicion: {
+          select: {
+            id: true,
+            nombre: true,
+            codigo: true,
+          },
+        },
+        _count: {
+          select: {
+            preguntas: true,
+          },
+        },
+      },
+      orderBy: {
+        nombre: 'asc',
+      },
+    });
+
+    res.json({
+      success: true,
+      data: { temas },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getTema = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const tema = await prisma.tema.findUnique({
+      where: { id },
+      include: {
+        oposicion: true,
+        preguntas: {
+          select: {
+            id: true,
+            titulo: true,
+            dificultad: true,
+            status: true,
+          },
+        },
+        statistics: true,
+      },
+    });
+
+    if (!tema) {
+      throw new AppError('Tema no encontrado', 404);
+    }
+
+    res.json({
+      success: true,
+      data: { tema },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createTema = async (req, res, next) => {
+  try {
+    const { nombre, descripcion, oposicionId } = req.body;
+
+    if (!nombre || !oposicionId) {
+      throw new AppError('Nombre y oposicionId son requeridos', 400);
+    }
+
+    // Verificar que la oposición existe
+    const oposicionExists = await prisma.oposicion.findUnique({
+      where: { id: oposicionId },
+    });
+
+    if (!oposicionExists) {
+      throw new AppError('Oposición no encontrada', 404);
+    }
+
+    // Verificar si ya existe un tema con el mismo nombre en esa oposición
+    const temaExists = await prisma.tema.findFirst({
+      where: {
+        nombre,
+        oposicionId,
+      },
+    });
+
+    if (temaExists) {
+      throw new AppError('Ya existe un tema con ese nombre en esta oposición', 400);
+    }
+
+    const tema = await prisma.tema.create({
+      data: {
+        nombre,
+        descripcion,
+        oposicionId,
+      },
+      include: {
+        oposicion: true,
+      },
+    });
+
+    logger.info(`✅ Tema creado: ${nombre}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Tema creado exitosamente',
+      data: { tema },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateTema = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { nombre, descripcion } = req.body;
+
+    const tema = await prisma.tema.update({
+      where: { id },
+      data: {
+        nombre,
+        descripcion,
+      },
+      include: {
+        oposicion: true,
+      },
+    });
+
+    logger.info(`✅ Tema actualizado: ${tema.nombre}`);
+
+    res.json({
+      success: true,
+      message: 'Tema actualizado',
+      data: { tema },
+    });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return next(new AppError('Tema no encontrado', 404));
+    }
+    next(error);
+  }
+};
+
+export const deleteTema = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar que el tema existe y contar preguntas
+    const tema = await prisma.tema.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            preguntas: true,
+          },
+        },
+      },
+    });
+
+    if (!tema) {
+      throw new AppError('Tema no encontrado', 404);
+    }
+
+    if (tema._count.preguntas > 0) {
+      throw new AppError(
+        `No se puede eliminar el tema porque tiene ${tema._count.preguntas} preguntas asociadas`,
+        400
+      );
+    }
+
+    await prisma.tema.delete({
+      where: { id },
+    });
+
+    logger.info(`✅ Tema eliminado: ${tema.nombre}`);
+
+    res.json({
+      success: true,
+      message: 'Tema eliminado',
+    });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return next(new AppError('Tema no encontrado', 404));
+    }
+    next(error);
+  }
+};

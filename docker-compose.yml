@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: oposiciones_db
+    environment:
+      POSTGRES_USER: oposiciones
+      POSTGRES_PASSWORD: oposiciones123
+      POSTGRES_DB: oposiciones_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oposiciones"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oposiciones_network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: oposiciones_backend
+    ports:
+      - "4100:4100"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://oposiciones:oposiciones123@postgres:5432/oposiciones_db
+      JWT_SECRET: tu_super_secreto_seguro_aqui_min_32_caracteres_production
+      JWT_EXPIRES_IN: 7d
+      PORT: 4100
+      CORS_ORIGIN: http://localhost:5173
+      LOG_LEVEL: debug
+      DB_HOST: postgres
+      POSTGRES_USER: oposiciones
+      POSTGRES_PASSWORD: oposiciones123
+      POSTGRES_DB: oposiciones_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+    networks:
+      - oposiciones_network
+
+  # Frontend (Comentado - ejecutar en local con npm run dev)
+  # frontend:
+  #   image: node:20-alpine
+  #   container_name: oposiciones_frontend
+  #   working_dir: /app
+  #   ports:
+  #     - "5173:5173"
+  #   environment:
+  #     VITE_API_URL: http://localhost:4100/api/v1
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   networks:
+  #     - oposiciones_network
+  #   command: npm run dev -- --host
+
+  # Nginx Reverse Proxy (Comentado - solo si necesitas proxy)
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: oposiciones_nginx
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - oposiciones_network
+
+volumes:
+  postgres_data:
+
+networks:
+  oposiciones_network:
+    driver: bridge
