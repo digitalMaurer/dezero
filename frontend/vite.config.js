@@ -10,6 +10,13 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: false
+    sourcemap: false,
+    rollupOptions: {
+      external: ['moment'], // Excluir moment si está presente
+    }
+  },
+  define: {
+    // Deshabilitar warnings de deprecación de moment
+    'process.env': {}
   }
 })

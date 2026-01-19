@@ -212,49 +212,47 @@ export const Estadisticas = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {history.map((test) => (
-                    <TableRow key={test.id}>
-                      <TableCell>{formatDate(test.fechaInicio)}</TableCell>
-                      <TableCell>
-                        {test.test?.oposicion?.nombre || 'N/A'}
-                      </TableCell>
-                      <TableCell>{test.totalPreguntas}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={`${Math.round(
-                            (test.respuestasCorrectas / test.totalPreguntas) *
-                              100
-                          )}%`}
-                          color={getScoreColor(
-                            (test.respuestasCorrectas / test.totalPreguntas) *
-                              100
+                  {history.map((attempt) => {
+                    const fecha = attempt.tiempoInicio || attempt.createdAt;
+                    const total = attempt.test?.cantidadPreguntas || 0;
+                    const correctas = attempt.cantidadCorrectas ?? 0;
+                    const completado = Boolean(attempt.tiempoFin);
+                    const pct = total > 0 ? Math.round((correctas / total) * 100) : 0;
+                    return (
+                      <TableRow key={attempt.id}>
+                        <TableCell>{fecha ? formatDate(fecha) : 'N/A'}</TableCell>
+                        <TableCell>
+                          {attempt.oposicion?.nombre || 'N/A'}
+                        </TableCell>
+                        <TableCell>{total}</TableCell>
+                        <TableCell>
+                          {completado ? (
+                            <Chip label={`${pct}%`} color={getScoreColor(pct)} size="small" />
+                          ) : (
+                            <Chip label="—" variant="outlined" size="small" />
                           )}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={
-                            test.completado ? 'Completado' : 'En Progreso'
-                          }
-                          color={test.completado ? 'success' : 'warning'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {test.completado && (
-                          <Button
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={completado ? 'Completado' : 'En Progreso'}
+                            color={completado ? 'success' : 'warning'}
                             size="small"
-                            onClick={() =>
-                              navigate(`/test/results/${test.id}`)
-                            }
-                          >
-                            Ver Resultados
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {completado ? (
+                            <Button size="small" onClick={() => navigate(`/test/results/${attempt.id}`)}>
+                              Ver Resultados
+                            </Button>
+                          ) : (
+                            <Button size="small" variant="outlined" onClick={() => navigate(`/test/${attempt.id}`)}>
+                              Continuar
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>

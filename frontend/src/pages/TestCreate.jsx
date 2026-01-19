@@ -13,6 +13,11 @@ import {
   Button,
   CircularProgress,
   Alert,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
+  Chip,
+  Stack,
 } from '@mui/material';
 import { temasService, testsService } from '../services/apiServices';
 
@@ -27,7 +32,7 @@ export const TestCreate = () => {
   const [error, setError] = useState(null);
 
   const [formData, setFormData] = useState({
-    temaId: '',
+    temaIds: [],
     cantidad: 10,
     dificultad: '',
   });
@@ -51,6 +56,25 @@ export const TestCreate = () => {
     }
   };
 
+  const handleTemaToggle = (temaId) => {
+    setFormData((prev) => {
+      const newTemaIds = prev.temaIds.includes(temaId)
+        ? prev.temaIds.filter((id) => id !== temaId)
+        : [...prev.temaIds, temaId];
+      return {
+        ...prev,
+        temaIds: newTemaIds,
+      };
+    });
+  };
+
+  const handleSelectAll = () => {
+    setFormData((prev) => ({
+      ...prev,
+      temaIds: prev.temaIds.length === temas.length ? [] : temas.map((t) => t.id),
+    }));
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -70,8 +94,9 @@ export const TestCreate = () => {
         cantidad: parseInt(formData.cantidad),
       };
 
-      if (formData.temaId) {
-        testData.temaId = formData.temaId;
+      // Si hay temas seleccionados, pasarlos como array
+      if (formData.temaIds.length > 0) {
+        testData.temaIds = formData.temaIds;
       }
 
       if (formData.dificultad) {
@@ -109,6 +134,12 @@ export const TestCreate = () => {
     );
   }
 
+  const selectedTemasData = temas.filter((t) => formData.temaIds.includes(t.id));
+  const totalPreguntasSeleccionadas = selectedTemasData.reduce(
+    (sum, t) => sum + (t._count?.preguntas || 0),
+    0
+  );
+
   return (
     <Container maxWidth="md">
       <Box sx={{ py: 4 }}>
@@ -127,24 +158,64 @@ export const TestCreate = () => {
 
         <Paper elevation={3} sx={{ p: 4 }}>
           <form onSubmit={handleSubmit}>
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel>Tema (opcional)</InputLabel>
-              <Select
-                name="temaId"
-                value={formData.temaId}
-                onChange={handleChange}
-                label="Tema (opcional)"
-              >
-                <MenuItem value="">
-                  <em>Todos los temas</em>
-                </MenuItem>
-                {temas.map((tema) => (
-                  <MenuItem key={tema.id} value={tema.id}>
-                    {tema.nombre} ({tema._count?.preguntas || 0} preguntas)
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {/* Selección de Temas */}
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              📚 Selecciona los temas
+            </Typography>
+
+            <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.temaIds.length === temas.length && temas.length > 0}
+                    indeterminate={
+                      formData.temaIds.length > 0 && formData.temaIds.length < temas.length
+                    }
+                    onChange={handleSelectAll}
+                  />
+                }
+                label={
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    Seleccionar todos los temas
+                  </Typography>
+                }
+              />
+            </Box>
+
+            <FormGroup sx={{ mb: 3 }}>
+              {temas.map((tema) => (
+                <FormControlLabel
+                  key={tema.id}
+                  control={
+                    <Checkbox
+                      checked={formData.temaIds.includes(tema.id)}
+                      onChange={() => handleTemaToggle(tema.id)}
+                    />
+                  }
+                  label={`${tema.nombre} (${tema._count?.preguntas || 0} preguntas)`}
+                />
+              ))}
+            </FormGroup>
+
+            {/* Resumen de selección */}
+            {formData.temaIds.length > 0 && (
+              <Box sx={{ mb: 3, p: 2, bgcolor: '#e8f5e9', borderRadius: 1 }}>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Seleccionado:</strong> {formData.temaIds.length} tema(s) -{' '}
+                  {totalPreguntasSeleccionadas} preguntas disponibles
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {selectedTemasData.map((tema) => (
+                    <Chip
+                      key={tema.id}
+                      label={`${tema.nombre} (${tema._count?.preguntas || 0})`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            )}
 
             <TextField
               fullWidth
@@ -154,8 +225,11 @@ export const TestCreate = () => {
               value={formData.cantidad}
               onChange={handleChange}
               sx={{ mb: 3 }}
-              inputProps={{ min: 1, max: 50 }}
+              inputProps={{ min: 1 }}
               required
+              helperText={`Máximo disponible: ${
+                formData.temaIds.length > 0 ? totalPreguntasSeleccionadas : 'Todos los temas'
+              } preguntas`}
             />
 
             <FormControl fullWidth sx={{ mb: 3 }}>
@@ -188,7 +262,7 @@ export const TestCreate = () => {
                 fullWidth
                 variant="contained"
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || formData.cantidad < 1}
               >
                 {submitting ? 'Creando...' : 'Iniciar Test'}
               </Button>

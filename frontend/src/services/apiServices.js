@@ -81,6 +81,15 @@ export const preguntasService = {
     const response = await apiClient.delete(`/preguntas/${id}`);
     return response.data;
   },
+  async bulkUpdateTema(ids, temaId) {
+    const response = await apiClient.post('/preguntas/bulk-update-tema', { ids, temaId });
+    return response.data;
+  },
+
+  async reportQuestion(preguntaId, data) {
+    const response = await apiClient.post(`/preguntas/${preguntaId}/report`, data);
+    return response.data;
+  },
 };
 
 export const testsService = {
@@ -111,6 +120,33 @@ export const testsService = {
 
   async getStats() {
     const response = await apiClient.get('/tests/stats');
+    return response.data;
+  },
+};
+
+export const reportsService = {
+  async getAll(params) {
+    const response = await apiClient.get('/reports', { params });
+    return response.data;
+  },
+
+  async getByPregunta(preguntaId) {
+    const response = await apiClient.get(`/preguntas/${preguntaId}/reports`);
+    return response.data;
+  },
+
+  async updateStatus(reportId, estado) {
+    const response = await apiClient.patch(`/reports/${reportId}/status`, { estado });
+    return response.data;
+  },
+
+  async delete(reportId) {
+    const response = await apiClient.delete(`/reports/${reportId}`);
+    return response.data;
+  },
+
+  async deleteByPregunta(preguntaId) {
+    const response = await apiClient.delete(`/preguntas/${preguntaId}/reports`);
     return response.data;
   },
 };

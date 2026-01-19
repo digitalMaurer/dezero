@@ -39,9 +39,50 @@ export const TestResults = () => {
       if (location.state?.results) {
         setResults(location.state.results);
       } else {
-        // Si no, cargar del backend
+        // Si no, cargar del backend y normalizar al formato de resultados
         const response = await testsService.getAttempt(attemptId);
-        setResults(response.data);
+        const attempt = response.data?.attempt || response.data;
+        if (!attempt) throw new Error('No se encontró el intento');
+
+        const preguntas = (attempt.test?.questions || []).map((q) => q.pregunta);
+        const respuestasMap = new Map(
+          (attempt.respuestas || []).map((r) => [r.preguntaId, r])
+        );
+
+        const respuestasDetalladas = preguntas.map((p) => {
+          const r = respuestasMap.get(p.id);
+          return {
+            preguntaId: p.id,
+            respuestaUsuario: r?.respuestaUsuario || null,
+            esCorrecta: Boolean(r?.esCorrecta),
+            pregunta: {
+              id: p.id,
+              titulo: p.titulo,
+              enunciado: p.enunciado,
+              opcionA: p.opcionA,
+              opcionB: p.opcionB,
+              opcionC: p.opcionC,
+              opcionD: p.opcionD,
+              dificultad: p.dificultad,
+              respuestaCorrecta: p.respuestaCorrecta,
+              explicacion: p.explicacion,
+            },
+          };
+        });
+
+        const totalPreguntas = attempt.test?.cantidadPreguntas || preguntas.length;
+        const respondidas = attempt.respuestas?.length || 0;
+        const respuestasCorrectas = (attempt.respuestas || []).filter((r) => r.esCorrecta).length;
+        const respuestasIncorrectas = Math.max(respondidas - respuestasCorrectas, 0);
+        const respuestasEnBlanco = Math.max(totalPreguntas - respondidas, 0);
+
+        setResults({
+          totalPreguntas,
+          respuestasCorrectas,
+          respuestasIncorrectas,
+          respuestasEnBlanco,
+          respuestas: respuestasDetalladas,
+        });
       }
     } catch (err) {
       setError('Error al cargar los resultados');

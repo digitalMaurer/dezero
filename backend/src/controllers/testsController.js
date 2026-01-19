@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 // Crear un intento de test
 export const createTestAttempt = async (req, res, next) => {
   try {
-    const { oposicionId, temaId, cantidad = 10, dificultad } = req.body;
+    const { oposicionId, temaId, temaIds, cantidad = 10, dificultad } = req.body;
     const userId = req.user.id;
 
     if (!oposicionId) {
@@ -19,8 +19,13 @@ export const createTestAttempt = async (req, res, next) => {
       status: 'PUBLISHED',
     };
 
-    if (temaId) {
-      where.temaId = temaId;
+    // Aceptar temaId (singular) o temaIds (array)
+    const temasSeleccionados = temaIds && Array.isArray(temaIds) ? temaIds : (temaId ? [temaId] : null);
+
+    if (temasSeleccionados && temasSeleccionados.length > 0) {
+      where.temaId = {
+        in: temasSeleccionados,
+      };
     } else {
       // Si no hay tema específico, buscar por oposición
       where.tema = {

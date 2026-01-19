@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 export const getPreguntas = async (req, res, next) => {
   try {
-    const { temaId, dificultad, status, page = 1, limit = 20 } = req.query;
+    const { temaId, dificultad, status, page = 1, limit = 100 } = req.query;
 
     const where = {};
     if (temaId) where.temaId = temaId;
@@ -221,6 +221,40 @@ export const deletePregunta = async (req, res, next) => {
     if (error.code === 'P2025') {
       return next(new AppError('Pregunta no encontrada', 404));
     }
+    next(error);
+  }
+};
+
+// Actualización masiva de tema para un conjunto de preguntas
+export const bulkUpdateTema = async (req, res, next) => {
+  try {
+    const { ids, temaId } = req.body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('Debe proporcionar una lista de IDs de preguntas', 400);
+    }
+    if (!temaId) {
+      throw new AppError('temaId es requerido', 400);
+    }
+
+    const temaExists = await prisma.tema.findUnique({ where: { id: temaId } });
+    if (!temaExists) {
+      throw new AppError('Tema no encontrado', 404);
+    }
+
+    const result = await prisma.pregunta.updateMany({
+      where: { id: { in: ids } },
+      data: { temaId },
+    });
+
+    logger.info(`✅ Preguntas actualizadas de forma masiva: ${result.count}`);
+
+    res.json({
+      success: true,
+      message: 'Preguntas actualizadas correctamente',
+      data: { updated: result.count },
+    });
+  } catch (error) {
     next(error);
   }
 };

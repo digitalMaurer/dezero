@@ -6,6 +6,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { Oposiciones } from './pages/Oposiciones';
+import { TestSelect } from './pages/TestSelect';
 import { TestCreate } from './pages/TestCreate';
 import { TestTake } from './pages/TestTake';
 import { TestResults } from './pages/TestResults';
@@ -68,6 +69,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Oposiciones />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/test"
+            element={
+              <ProtectedRoute>
+                <TestSelect />
               </ProtectedRoute>
             }
           />

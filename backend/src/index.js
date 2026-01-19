@@ -7,6 +7,7 @@ import oposicionesRoutes from './routes/oposiciones.js';
 import temasRoutes from './routes/temas.js';
 import preguntasRoutes from './routes/preguntas.js';
 import testsRoutes from './routes/tests.js';
+import reportsRoutes from './routes/reports.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { logger } from './utils/logger.js';
 
@@ -36,6 +37,7 @@ app.use('/api/v1/oposiciones', oposicionesRoutes);
 app.use('/api/v1/temas', temasRoutes);
 app.use('/api/v1/preguntas', preguntasRoutes);
 app.use('/api/v1/tests', testsRoutes);
+app.use('/api/v1', reportsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
