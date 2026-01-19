@@ -31,6 +31,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { oposicionesService, temasService, preguntasService, reportsService } from '../services/apiServices';
 
 export const AdminPreguntas = () => {
@@ -59,6 +60,8 @@ export const AdminPreguntas = () => {
   // Diálogos
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [editingPregunta, setEditingPregunta] = useState(null);
+  const [openViewReportDialog, setOpenViewReportDialog] = useState(false);
+  const [viewingReport, setViewingReport] = useState(null);
 
   useEffect(() => {
     loadOposiciones();
@@ -649,6 +652,18 @@ export const AdminPreguntas = () => {
                         <TableCell>
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <Button
+                              variant="contained"
+                              color="info"
+                              size="small"
+                              startIcon={<VisibilityIcon />}
+                              onClick={() => {
+                                setViewingReport(report);
+                                setOpenViewReportDialog(true);
+                              }}
+                            >
+                              Ver
+                            </Button>
+                            <Button
                               variant="outlined"
                               color="error"
                               size="small"
@@ -782,9 +797,152 @@ export const AdminPreguntas = () => {
           )}
         </DialogContent>
         <DialogActions>
+          <Button
+            color="error"
+            variant="outlined"
+            disabled={!editingPregunta?.id}
+            onClick={async () => {
+              if (!editingPregunta?.id) return;
+              await handleDelete(editingPregunta.id);
+              setOpenEditDialog(false);
+            }}
+          >
+            Eliminar
+          </Button>
           <Button onClick={() => setOpenEditDialog(false)}>Cancelar</Button>
           <Button onClick={handleEditSave} variant="contained">
             Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog para visualizar reporte */}
+      <Dialog open={openViewReportDialog} onClose={() => setOpenViewReportDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>🚩 Detalle del Reporte</DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          {viewingReport && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Información del reporte */}
+              <Box sx={{ p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  ⚠️ Reporte
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Usuario:</strong> {viewingReport.user?.nombre} ({viewingReport.user?.email})
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Fecha:</strong> {new Date(viewingReport.createdAt).toLocaleString()}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Problema reportado:</strong>
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1, p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
+                  {viewingReport.descripcion}
+                </Typography>
+              </Box>
+
+              {/* Pregunta reportada */}
+              <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 2 }}>
+                  ❓ Pregunta Reportada
+                </Typography>
+
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  <strong>Enunciado:</strong>
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2, p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
+                  {viewingReport.pregunta?.enunciado}
+                </Typography>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mb: 2 }}>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Opción A:</Typography>
+                    <Typography variant="body2" sx={{ p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
+                      {viewingReport.pregunta?.opcionA}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Opción B:</Typography>
+                    <Typography variant="body2" sx={{ p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
+                      {viewingReport.pregunta?.opcionB}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Opción C:</Typography>
+                    <Typography variant="body2" sx={{ p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
+                      {viewingReport.pregunta?.opcionC}
+                    </Typography>
+                  </Box>
+                  {viewingReport.pregunta?.opcionD && (
+                    <Box>
+                      <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Opción D:</Typography>
+                      <Typography variant="body2" sx={{ p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
+                        {viewingReport.pregunta?.opcionD}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Respuesta Correcta:</strong> <Chip label={viewingReport.pregunta?.respuestaCorrecta} color="success" size="small" />
+                </Typography>
+
+                {viewingReport.pregunta?.explicacion && (
+                  <>
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      <strong>Explicación:</strong>
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 2, p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
+                      {viewingReport.pregunta?.explicacion}
+                    </Typography>
+                  </>
+                )}
+
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Chip 
+                    label={`Tema: ${viewingReport.pregunta?.tema?.nombre}`} 
+                    size="small" 
+                  />
+                  <Chip 
+                    label={`Oposición: ${viewingReport.pregunta?.tema?.oposicion?.nombre}`} 
+                    size="small" 
+                  />
+                  <Chip 
+                    label={`Dificultad: ${viewingReport.pregunta?.dificultad}`}
+                    color={
+                      viewingReport.pregunta?.dificultad === 'EASY'
+                        ? 'success'
+                        : viewingReport.pregunta?.dificultad === 'MEDIUM'
+                        ? 'warning'
+                        : 'error'
+                    }
+                    size="small" 
+                  />
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setOpenViewReportDialog(false);
+              setViewingReport(null);
+            }}
+          >
+            Cerrar
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={() => {
+              // Abrir el dialog de edición con la pregunta
+              setEditingPregunta({ ...viewingReport.pregunta });
+              setOpenEditDialog(true);
+              setOpenViewReportDialog(false);
+            }}
+            startIcon={<EditIcon />}
+          >
+            Editar Pregunta
           </Button>
         </DialogActions>
       </Dialog>

@@ -250,16 +250,7 @@ export const deleteReportsByPregunta = async (req, res, next) => {
       throw new AppError('preguntaId es requerido', 400);
     }
 
-    // Verificar que la pregunta existe
-    const pregunta = await prisma.pregunta.findUnique({
-      where: { id: preguntaId },
-    });
-
-    if (!pregunta) {
-      throw new AppError('Pregunta no encontrada', 404);
-    }
-
-    // Eliminar todos los reportes
+    // Eliminar todos los reportes aunque la pregunta ya no exista (para evitar atascos)
     const result = await prisma.questionReport.deleteMany({
       where: { preguntaId },
     });

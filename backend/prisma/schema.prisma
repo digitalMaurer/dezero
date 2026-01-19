@@ -151,6 +151,11 @@ model TestAttempt {
   puntaje   Int
   cantidadCorrectas Int
   cantidadIncorrectas Int
+
+  // Modo de test y rachas (Manicomio)
+  mode String @default("ALEATORIO")
+  streakCurrent Int @default(0)
+  streakMax Int @default(0)
   
   tiempoInicio DateTime
   tiempoFin    DateTime?

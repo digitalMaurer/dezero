@@ -16,11 +16,13 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Divider,
+  Paper,
 } from '@mui/material';
 import CasinoIcon from '@mui/icons-material/Casino';
 import RepeatIcon from '@mui/icons-material/Repeat';
 import BookIcon from '@mui/icons-material/Book';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import FlashOnIcon from '@mui/icons-material/FlashOn';
 import { oposicionesService } from '../services/apiServices';
 
 export const TestSelect = () => {
@@ -214,6 +216,29 @@ export const TestSelect = () => {
                 </CardContent>
               </Card>
             </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                onClick={() => handleModeChange(null, 'MANICOMIO')}
+                sx={{
+                  cursor: 'pointer',
+                  border: mode === 'MANICOMIO' ? '3px solid #f50057' : '1px solid #ddd',
+                  transition: 'all 0.3s',
+                  '&:hover': { transform: 'scale(1.05)', boxShadow: 4 },
+                  height: '100%',
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <FlashOnIcon sx={{ fontSize: 50, color: '#f50057', mb: 2 }} />
+                  <Typography variant="h6" gutterBottom>
+                    🌀 Manicomio
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Gana con 30 aciertos seguidos. Sin blancos.
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
 
           {/* Descripción del modo */}
@@ -236,6 +261,11 @@ export const TestSelect = () => {
             {mode === 'FILTRADO' && (
               <Alert severity="error">
                 <strong>Modo Filtrado Avanzado:</strong> En el siguiente paso podrás elegir filtros específicos como "más mal respondidas", "última respuesta errónea", "nunca respondidas", etc.
+              </Alert>
+            )}
+            {mode === 'MANICOMIO' && (
+              <Alert severity="error">
+                <strong>Modo Manicomio:</strong> Debes acertar 30 seguidas. Sin dejar en blanco ni mapa de preguntas. Feedback inmediato.
               </Alert>
             )}
           </Box>

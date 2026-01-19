@@ -112,9 +112,6 @@ export const createTestAttempt = async (req, res, next) => {
     // Limitar a la cantidad solicitada
     const preguntasSeleccionadas = preguntas.slice(0, parseInt(cantidad));
 
-    // Limitar a la cantidad solicitada
-    const preguntasSeleccionadas = preguntas.slice(0, parseInt(cantidad));
-
     // Crear el test
     const test = await prisma.test.create({
       data: {
@@ -145,6 +142,9 @@ export const createTestAttempt = async (req, res, next) => {
         puntaje: 0,
         cantidadCorrectas: 0,
         cantidadIncorrectas: 0,
+        mode,
+        streakCurrent: 0,
+        streakMax: 0,
         tiempoInicio: new Date(),
       },
     });
@@ -171,6 +171,7 @@ export const createTestAttempt = async (req, res, next) => {
         attemptId: attempt.id,
         testId: test.id,
         preguntas: preguntasParaTest,
+        mode,
         tiempoInicio: attempt.tiempoInicio,
       },
     });
@@ -314,6 +315,159 @@ export const submitTestAttempt = async (req, res, next) => {
         totalPreguntas: attempt.test.cantidadPreguntas,
         porcentajeAcierto: Math.round((correctas / attempt.test.cantidadPreguntas) * 100),
         respuestas: respuestasCorregidas,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Responder pregunta en modo MANICOMIO (racha de 30 correctas)
+export const answerQuestionManicomio = async (req, res, next) => {
+  try {
+    const { id } = req.params; // attemptId
+    const { preguntaId, respuestaUsuario } = req.body;
+    const userId = req.user.id;
+
+    if (!preguntaId || !respuestaUsuario) {
+      throw new AppError('preguntaId y respuestaUsuario son requeridos', 400);
+    }
+
+    const attempt = await prisma.testAttempt.findFirst({
+      where: { id, userId },
+      include: {
+        test: {
+          include: {
+            questions: {
+              include: {
+                pregunta: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      throw new AppError('Intento de test no encontrado', 404);
+    }
+
+    if (attempt.tiempoFin) {
+      throw new AppError('Este test ya ha finalizado', 400);
+    }
+
+    if (attempt.mode !== 'MANICOMIO') {
+      throw new AppError('Este endpoint es solo para modo MANICOMIO', 400);
+    }
+
+    const question = attempt.test.questions.find(
+      (q) => q.pregunta.id === preguntaId
+    );
+
+    if (!question) {
+      throw new AppError('La pregunta no pertenece a este test', 400);
+    }
+
+    const existingResponse = await prisma.attemptResponse.findUnique({
+      where: {
+        attemptId_preguntaId: {
+          attemptId: id,
+          preguntaId,
+        },
+      },
+    });
+
+    if (existingResponse) {
+      throw new AppError('Esta pregunta ya fue respondida en este intento', 400);
+    }
+
+    const esCorrecta = question.pregunta.respuestaCorrecta === respuestaUsuario;
+
+    let streakCurrent = esCorrecta ? attempt.streakCurrent + 1 : 0;
+    let streakMax = Math.max(streakCurrent, attempt.streakMax);
+    let cantidadCorrectas = attempt.cantidadCorrectas + (esCorrecta ? 1 : 0);
+    let cantidadIncorrectas = attempt.cantidadIncorrectas + (esCorrecta ? 0 : 1);
+    let finished = false;
+    let puntaje = attempt.puntaje;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.attemptResponse.create({
+        data: {
+          attemptId: id,
+          preguntaId,
+          respuestaUsuario,
+          esCorrecta,
+        },
+      });
+
+      // Actualizar estadísticas de pregunta
+      const stats = await tx.questionStatistic.findUnique({
+        where: { preguntaId },
+      });
+
+      if (stats) {
+        await tx.questionStatistic.update({
+          where: { preguntaId },
+          data: {
+            vecesRespondida: stats.vecesRespondida + 1,
+            vecesCorrecta: stats.vecesCorrecta + (esCorrecta ? 1 : 0),
+            porcentajeAcierto:
+              ((stats.vecesCorrecta + (esCorrecta ? 1 : 0)) /
+                (stats.vecesRespondida + 1)) *
+              100,
+          },
+        });
+      } else {
+        await tx.questionStatistic.create({
+          data: {
+            preguntaId,
+            vecesRespondida: 1,
+            vecesCorrecta: esCorrecta ? 1 : 0,
+            porcentajeAcierto: esCorrecta ? 100 : 0,
+          },
+        });
+      }
+
+      if (streakCurrent >= 30) {
+        finished = true;
+        const totalRespondidas = cantidadCorrectas + cantidadIncorrectas;
+        puntaje = Math.round((cantidadCorrectas / totalRespondidas) * 10);
+
+        await tx.testAttempt.update({
+          where: { id },
+          data: {
+            streakCurrent,
+            streakMax,
+            cantidadCorrectas,
+            cantidadIncorrectas,
+            puntaje,
+            tiempoFin: new Date(),
+          },
+        });
+      } else {
+        await tx.testAttempt.update({
+          where: { id },
+          data: {
+            streakCurrent,
+            streakMax,
+            cantidadCorrectas,
+            cantidadIncorrectas,
+          },
+        });
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        esCorrecta,
+        streakCurrent,
+        streakMax,
+        remaining: Math.max(30 - streakCurrent, 0),
+        finished,
+        cantidadCorrectas,
+        cantidadIncorrectas,
+        puntaje: finished ? puntaje : undefined,
       },
     });
   } catch (error) {

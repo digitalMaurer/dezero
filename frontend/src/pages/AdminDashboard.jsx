@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -9,14 +9,20 @@ import {
   CardContent,
   CardActions,
   Button,
+  Stack,
 } from '@mui/material';
 import SchoolIcon from '@mui/icons-material/School';
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import PeopleIcon from '@mui/icons-material/People';
+import BackupIcon from '@mui/icons-material/Backup';
+import { maintenanceService } from '../services/apiServices';
 
 export const AdminDashboard = () => {
   const navigate = useNavigate();
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const adminOptions = [
     {
@@ -48,6 +54,54 @@ export const AdminDashboard = () => {
       color: '#4facfe',
     },
   ];
+
+  const handleBackup = async () => {
+    try {
+      setBackupLoading(true);
+      const response = await maintenanceService.downloadDbBackup();
+      const blob = new Blob([response.data], { type: 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const filename = response.headers?.['content-disposition']?.split('filename=')[1] || 'dev_backup.db';
+      link.setAttribute('download', filename.replace(/"/g, ''));
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('No se pudo generar el backup. Revisa que eres admin y que el backend esté disponible.');
+      console.error(error);
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleRestoreClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleRestoreFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const confirmed = window.confirm('Esto sustituirá la base de datos actual. ¿Continuar?');
+    if (!confirmed) return;
+
+    try {
+      setRestoreLoading(true);
+      const result = await maintenanceService.restoreDbBackup(file);
+      alert(result?.message || 'Base de datos restaurada. Reinicia el backend para aplicar cambios.');
+    } catch (error) {
+      alert('No se pudo restaurar el backup. Revisa que eres admin y que el backend esté disponible.');
+      console.error(error);
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
 
   return (
     <Container maxWidth="lg">
@@ -122,6 +176,36 @@ export const AdminDashboard = () => {
           <Typography variant="body2">
             ✅ Puedes editar o eliminar cualquier elemento en cualquier momento
           </Typography>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 3 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<BackupIcon />}
+              onClick={handleBackup}
+              disabled={backupLoading}
+            >
+              {backupLoading ? 'Generando backup...' : 'Descargar backup de base de datos'}
+            </Button>
+
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<BackupIcon />}
+              onClick={handleRestoreClick}
+              disabled={restoreLoading}
+            >
+              {restoreLoading ? 'Restaurando...' : 'Restaurar backup (subir archivo)'}
+            </Button>
+
+            <input
+              type="file"
+              accept=".db"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              onChange={handleRestoreFile}
+            />
+          </Stack>
         </Box>
       </Box>
     </Container>

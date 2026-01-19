@@ -106,6 +106,11 @@ export const testsService = {
     return response.data;
   },
 
+  async answerQuestion(attemptId, payload) {
+    const response = await apiClient.post(`/tests/attempts/${attemptId}/answer`, payload);
+    return response.data;
+  },
+
   async getAttempt(id) {
     const response = await apiClient.get(`/tests/attempts/${id}`);
     return response.data;
@@ -176,6 +181,25 @@ export const ankiService = {
 
   async batchUpdateGrades(updates) {
     const response = await apiClient.post('/anki/batch-update', { updates });
+    return response.data;
+  },
+};
+
+export const maintenanceService = {
+  async downloadDbBackup() {
+    const response = await apiClient.get('/maintenance/db-backup', {
+      responseType: 'blob',
+    });
+    return response;
+  },
+
+  async restoreDbBackup(file) {
+    const formData = new FormData();
+    formData.append('backup', file);
+
+    const response = await apiClient.post('/maintenance/db-restore', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 };
