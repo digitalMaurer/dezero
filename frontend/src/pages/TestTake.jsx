@@ -350,37 +350,6 @@ const TestTake = () => {
   const isManicomio = testData?.mode === 'MANICOMIO';
   const currentQuestion = testData?.preguntas?.[currentQuestionIndex];
 
-  // Función para mezclar opciones de manera determinista (misma pregunta siempre igual)
-  const getShuffledOptions = (question) => {
-    if (!question) return [];
-    
-    const options = [
-      { label: 'A', text: question.opcionA, original: 'A' },
-      { label: 'B', text: question.opcionB, original: 'B' },
-      { label: 'C', text: question.opcionC, original: 'C' },
-    ];
-    
-    if (question.opcionD) {
-      options.push({ label: 'D', text: question.opcionD, original: 'D' });
-    }
-
-    // Usar el ID de la pregunta como seed para mantener consistencia
-    // Mezcla de Fisher-Yates con seed basado en preguntaId
-    const seed = question.id.charCodeAt(0) + question.id.charCodeAt(question.id.length - 1);
-    let shuffled = [...options];
-    
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = (seed + i) % (i + 1);
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    
-    return shuffled;
-  };
-
-  const shuffledOptions = useMemo(() => {
-    return getShuffledOptions(currentQuestion);
-  }, [currentQuestion?.id]);
-
   const progress = useMemo(() => {
     if (!testData?.preguntas?.length) return 0;
     return ((currentQuestionIndex + 1) / testData.preguntas.length) * 100;
@@ -522,15 +491,12 @@ const TestTake = () => {
                   value={respuestas[currentQuestion.id] || ''}
                   onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
                 >
-                  {shuffledOptions.map((option) => (
-                    <FormControlLabel
-                      key={option.original}
-                      value={option.original}
-                      control={<Radio />}
-                      label={`${option.label}) ${option.text}`}
-                      sx={{ mb: 2 }}
-                    />
-                  ))}
+                  <FormControlLabel value="A" control={<Radio />} label={`A) ${currentQuestion.opcionA}`} sx={{ mb: 2 }} />
+                  <FormControlLabel value="B" control={<Radio />} label={`B) ${currentQuestion.opcionB}`} sx={{ mb: 2 }} />
+                  <FormControlLabel value="C" control={<Radio />} label={`C) ${currentQuestion.opcionC}`} sx={{ mb: 2 }} />
+                  {currentQuestion.opcionD && (
+                    <FormControlLabel value="D" control={<Radio />} label={`D) ${currentQuestion.opcionD}`} sx={{ mb: 2 }} />
+                  )}
                   {!isManicomio && (
                     <FormControlLabel
                       value=""

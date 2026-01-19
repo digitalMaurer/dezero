@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../utils/logger.js';
 import { getPreguntasConFiltro, ordenarPreguntas } from '../utils/filtroPreguntas.js';
+import { shuffleQuestionOptions } from '../utils/shuffleUtils.js';
 
 const prisma = new PrismaClient();
 
@@ -149,18 +150,22 @@ export const createTestAttempt = async (req, res, next) => {
       },
     });
 
-    // Devolver preguntas sin respuestas
-    const preguntasParaTest = test.questions.map((q) => ({
-      id: q.pregunta.id,
-      titulo: q.pregunta.titulo,
-      enunciado: q.pregunta.enunciado,
-      opcionA: q.pregunta.opcionA,
-      opcionB: q.pregunta.opcionB,
-      opcionC: q.pregunta.opcionC,
-      opcionD: q.pregunta.opcionD,
-      dificultad: q.pregunta.dificultad,
-      orden: q.orden,
-    }));
+    // Devolver preguntas sin respuestas (con opciones mezcladas)
+    const preguntasParaTest = test.questions.map((q) => {
+      const shuffled = shuffleQuestionOptions(q.pregunta);
+      return {
+        id: q.pregunta.id,
+        titulo: q.pregunta.titulo,
+        enunciado: q.pregunta.enunciado,
+        opcionA: shuffled.opcionA,
+        opcionB: shuffled.opcionB,
+        opcionC: shuffled.opcionC,
+        opcionD: shuffled.opcionD,
+        respuestaCorrecta: shuffled.respuestaCorrecta,
+        dificultad: q.pregunta.dificultad,
+        orden: q.orden,
+      };
+    });
 
     logger.info(`✅ Test attempt creado: ${attempt.id} para usuario ${userId}`);
 
@@ -541,9 +546,21 @@ export const getTestAttempt = async (req, res, next) => {
       throw new AppError('Intento de test no encontrado', 404);
     }
 
+    // Aplicar shuffle a las preguntas
+    const attemptWithShuffled = {
+      ...attempt,
+      test: {
+        ...attempt.test,
+        questions: attempt.test.questions.map((q) => ({
+          ...q,
+          pregunta: shuffleQuestionOptions(q.pregunta),
+        })),
+      },
+    };
+
     res.json({
       success: true,
-      data: { attempt },
+      data: { attempt: attemptWithShuffled },
     });
   } catch (error) {
     next(error);
