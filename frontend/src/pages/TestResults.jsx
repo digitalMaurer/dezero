@@ -13,10 +13,13 @@ import {
   Chip,
   Divider,
   Grid,
+  ButtonGroup,
+  Snackbar,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
-import { testsService } from '../services/apiServices';
+import RepeatIcon from '@mui/icons-material/Repeat';
+import { testsService, ankiService } from '../services/apiServices';
 
 export const TestResults = () => {
   const { attemptId } = useParams();
@@ -26,6 +29,8 @@ export const TestResults = () => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [ankiUpdating, setAnkiUpdating] = useState({});
+  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
 
   useEffect(() => {
     loadResults();
@@ -89,6 +94,36 @@ export const TestResults = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAnkiGrade = async (preguntaId, grade, esCorrecta) => {
+    // Si la pregunta fue mal respondida, forzar a "OTRA_VEZ"
+    const finalGrade = esCorrecta ? grade : 'OTRA_VEZ';
+
+    try {
+      setAnkiUpdating((prev) => ({ ...prev, [preguntaId]: true }));
+      await ankiService.updateQuestionGrade(preguntaId, finalGrade);
+      
+      const gradeLabels = {
+        'OTRA_VEZ': 'Otra vez (1 día)',
+        'DIFICIL': 'Difícil (3 días)',
+        'BIEN': 'Bien (10 días)',
+        'FACIL': 'Fácil (20 días)',
+      };
+      
+      setSnackbar({
+        open: true,
+        message: `✅ Pregunta marcada como: ${gradeLabels[finalGrade]}`,
+      });
+    } catch (err) {
+      console.error('Error al actualizar Anki:', err);
+      setSnackbar({
+        open: true,
+        message: '❌ Error al actualizar repaso Anki',
+      });
+    } finally {
+      setAnkiUpdating((prev) => ({ ...prev, [preguntaId]: false }));
     }
   };
 
@@ -358,11 +393,67 @@ export const TestResults = () => {
                       </Typography>
                     </Box>
                   )}
+
+                  {/* Botones Anki */}
+                  <Divider sx={{ my: 2 }} />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <RepeatIcon color="action" />
+                    <Typography variant="body2" color="textSecondary">
+                      <strong>Repaso Anki:</strong>
+                    </Typography>
+                    {respuesta.esCorrecta ? (
+                      <ButtonGroup size="small" disabled={ankiUpdating[respuesta.pregunta.id]}>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleAnkiGrade(respuesta.pregunta.id, 'OTRA_VEZ', true)}
+                        >
+                          Otra vez
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="warning"
+                          onClick={() => handleAnkiGrade(respuesta.pregunta.id, 'DIFICIL', true)}
+                        >
+                          Difícil
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="success"
+                          onClick={() => handleAnkiGrade(respuesta.pregunta.id, 'BIEN', true)}
+                        >
+                          Bien
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="info"
+                          onClick={() => handleAnkiGrade(respuesta.pregunta.id, 'FACIL', true)}
+                        >
+                          Fácil
+                        </Button>
+                      </ButtonGroup>
+                    ) : (
+                      <Chip
+                        icon={<RepeatIcon />}
+                        label="Automático: Otra vez (1 día)"
+                        color="error"
+                        size="small"
+                        onClick={() => handleAnkiGrade(respuesta.pregunta.id, 'OTRA_VEZ', false)}
+                      />
+                    )}
+                  </Box>
                 </>
               )}
             </Paper>
           ))}
       </Box>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ open: false, message: '' })}
+        message={snackbar.message}
+      />
     </Container>
   );
 };

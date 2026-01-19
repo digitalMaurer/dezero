@@ -150,3 +150,32 @@ export const reportsService = {
     return response.data;
   },
 };
+
+export const ankiService = {
+  async updateQuestionGrade(preguntaId, grade) {
+    const response = await apiClient.post(`/anki/preguntas/${preguntaId}/grade`, { grade });
+    return response.data;
+  },
+
+  async getDueQuestions(temasIds) {
+    const response = await apiClient.get('/anki/preguntas/due', {
+      params: { temasIds },
+    });
+    return response.data;
+  },
+
+  async getStatsByOposicion(oposicionId) {
+    const response = await apiClient.get(`/anki/oposiciones/${oposicionId}/stats`);
+    return response.data;
+  },
+
+  async getStatsByTema(temaId) {
+    const response = await apiClient.get(`/anki/temas/${temaId}/stats`);
+    return response.data;
+  },
+
+  async batchUpdateGrades(updates) {
+    const response = await apiClient.post('/anki/batch-update', { updates });
+    return response.data;
+  },
+};

@@ -13,13 +13,21 @@ import {
   Alert,
   Chip,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Divider,
 } from '@mui/material';
+import CasinoIcon from '@mui/icons-material/Casino';
+import RepeatIcon from '@mui/icons-material/Repeat';
+import BookIcon from '@mui/icons-material/Book';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import { oposicionesService } from '../services/apiServices';
 
 export const TestSelect = () => {
   const [oposiciones, setOposiciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [mode, setMode] = useState('ALEATORIO');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,6 +46,16 @@ export const TestSelect = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleModeChange = (event, newMode) => {
+    if (newMode !== null) {
+      setMode(newMode);
+    }
+  };
+
+  const handleSelectOposicion = (oposicionId) => {
+    navigate(`/test/create?oposicionId=${oposicionId}&mode=${mode}`);
   };
 
   if (loading) {
@@ -92,10 +110,69 @@ export const TestSelect = () => {
     <Container maxWidth="lg">
       <Box sx={{ py: 4 }}>
         <Typography variant="h3" component="h1" gutterBottom>
-          📚 Selecciona una Oposición
+          📚 Selecciona Modo de Test
         </Typography>
         <Typography variant="body1" color="textSecondary" sx={{ mb: 4 }}>
-          Elige una oposición para comenzar tu test personalizado
+          Elige el tipo de test que deseas realizar
+        </Typography>
+
+        {/* Selector de Modo */}
+        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'center' }}>
+          <ToggleButtonGroup
+            value={mode}
+            exclusive
+            onChange={handleModeChange}
+            aria-label="modo de test"
+            color="primary"
+            size="large"
+          >
+            <ToggleButton value="ALEATORIO" aria-label="aleatorio">
+              <CasinoIcon sx={{ mr: 1 }} />
+              Aleatorio
+            </ToggleButton>
+            <ToggleButton value="ANKI" aria-label="anki">
+              <RepeatIcon sx={{ mr: 1 }} />
+              Anki (Repaso)
+            </ToggleButton>
+            <ToggleButton value="REPASO" aria-label="repaso">
+              <BookIcon sx={{ mr: 1 }} />
+              Repaso
+            </ToggleButton>
+            <ToggleButton value="FILTRADO" aria-label="filtrado">
+              <FilterListIcon sx={{ mr: 1 }} />
+              Filtrado
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
+        {/* Descripción del modo */}
+        <Box sx={{ mb: 4, textAlign: 'center' }}>
+          {mode === 'ALEATORIO' && (
+            <Alert severity="info" sx={{ maxWidth: 600, mx: 'auto' }}>
+              <strong>Modo Aleatorio:</strong> Preguntas seleccionadas aleatoriamente de los temas elegidos.
+            </Alert>
+          )}
+          {mode === 'ANKI' && (
+            <Alert severity="success" sx={{ maxWidth: 600, mx: 'auto' }}>
+              <strong>Modo Anki:</strong> Solo preguntas que necesitan repaso según tu historial de respuestas.
+            </Alert>
+          )}
+          {mode === 'REPASO' && (
+            <Alert severity="warning" sx={{ maxWidth: 600, mx: 'auto' }}>
+              <strong>Modo Repaso:</strong> Preguntas vencidas o que requieren revisión.
+            </Alert>
+          )}
+          {mode === 'FILTRADO' && (
+            <Alert severity="error" sx={{ maxWidth: 600, mx: 'auto' }}>
+              <strong>Modo Filtrado:</strong> Filtra por "más mal respondidas", "última respuesta errónea", etc.
+            </Alert>
+          )}
+        </Box>
+
+        <Divider sx={{ mb: 4 }} />
+
+        <Typography variant="h5" gutterBottom>
+          Selecciona una Oposición
         </Typography>
 
         <Grid container spacing={3}>
@@ -143,9 +220,9 @@ export const TestSelect = () => {
                   <Button
                     fullWidth
                     variant="contained"
-                    onClick={() => navigate(`/test/create?oposicionId=${oposicion.id}`)}
+                    onClick={() => handleSelectOposicion(oposicion.id)}
                   >
-                    Crear Test
+                    Crear Test {mode === 'ALEATORIO' ? '🎲' : mode === 'ANKI' ? '🔄' : mode === 'REPASO' ? '📖' : '🎯'}
                   </Button>
                 </CardActions>
               </Card>

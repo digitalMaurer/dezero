@@ -25,6 +25,7 @@ export const TestCreate = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const oposicionId = searchParams.get('oposicionId');
+  const mode = searchParams.get('mode') || 'ALEATORIO';
 
   const [temas, setTemas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +36,7 @@ export const TestCreate = () => {
     temaIds: [],
     cantidad: 10,
     dificultad: '',
+    mode: mode,
   });
 
   useEffect(() => {

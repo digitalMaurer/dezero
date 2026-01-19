@@ -81,6 +81,13 @@ model Pregunta {
   dificultad String @default("MEDIUM") // EASY, MEDIUM, HARD
   status    String @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
   
+  // Campos Anki para repetición espaciada
+  easeFactor Float @default(2.5) // Factor de facilidad (default 2.5 según SM-2)
+  interval   Int @default(1) // Días hasta próxima revisión
+  dueDate    DateTime? // Fecha de próxima revisión (null = nunca revisada)
+  repetitions Int @default(0) // Veces que se ha revisado
+  lastReview DateTime? // Última fecha de revisión
+  
   temaId    String
   tema      Tema @relation(fields: [temaId], references: [id], onDelete: Cascade)
   
