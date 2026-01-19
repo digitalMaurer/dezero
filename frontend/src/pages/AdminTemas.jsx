@@ -33,6 +33,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { oposicionesService, temasService, preguntasService } from '../services/apiServices';
 
 export const AdminTemas = () => {
@@ -65,6 +66,11 @@ export const AdminTemas = () => {
   const [openMoveDialog, setOpenMoveDialog] = useState(false);
   const [targetTemaId, setTargetTemaId] = useState('');
   const [selectedTemaForMove, setSelectedTemaForMove] = useState(null);
+  
+  // Dialog para importar CSV
+  const [openImportDialog, setOpenImportDialog] = useState(false);
+  const [importTemaId, setImportTemaId] = useState(null);
+  const [importText, setImportText] = useState('');
 
   useEffect(() => {
     loadOposiciones();
@@ -189,11 +195,12 @@ export const AdminTemas = () => {
 
   // Expandir/colapsar tema
   const toggleTemaExpand = (temaId) => {
+    const wasExpanded = expandedTemas[temaId];
     setExpandedTemas((prev) => ({
       ...prev,
       [temaId]: !prev[temaId],
     }));
-    if (!prev[temaId]) {
+    if (!wasExpanded) {
       loadPreguntasByTema(temaId);
     }
   };
@@ -286,6 +293,91 @@ export const AdminTemas = () => {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError('Error al mover preguntas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Importar CSV
+  const parseImportText = (text) => {
+    const lines = text.trim().split('\n');
+    const preguntas = [];
+
+    lines.forEach((line) => {
+      const parts = line.split('|');
+      if (parts.length < 7) return;
+
+      preguntas.push({
+        id: parts[0].trim(),
+        enunciado: parts[1].trim(),
+        opcionA: parts[2].trim(),
+        opcionB: parts[3].trim(),
+        opcionC: parts[4].trim(),
+        opcionD: parts[5].trim(),
+        respuestacorrecta: parts[6].trim().toUpperCase(),
+        explicacion: parts[7]?.trim() || '',
+        tip: parts[8]?.trim() || '',
+      });
+    });
+
+    return preguntas;
+  };
+
+  const handleImportCSV = async () => {
+    if (!importText.trim()) {
+      setError('Por favor, pega las preguntas');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const preguntasParsed = parseImportText(importText);
+
+      // Validar respuestas correctas
+      preguntasParsed.forEach((p, idx) => {
+        if (!['A', 'B', 'C', 'D'].includes(p.respuestacorrecta)) {
+          throw new Error(
+            `Pregunta ${idx + 1}: La respuesta correcta debe ser A, B, C o D`
+          );
+        }
+      });
+
+      // Importar cada pregunta
+      let importadas = 0;
+      for (const p of preguntasParsed) {
+        try {
+          await preguntasService.create({
+            titulo: `Pregunta ${p.id}`,
+            enunciado: p.enunciado,
+            opcionA: p.opcionA,
+            opcionB: p.opcionB,
+            opcionC: p.opcionC,
+            opcionD: p.opcionD,
+            respuestaCorrecta: p.respuestacorrecta,
+            explicacion: p.explicacion,
+            tip: p.tip,
+            dificultad: 'MEDIUM',
+            status: 'PUBLISHED',
+            temaId: importTemaId,
+          });
+          importadas++;
+        } catch (err) {
+          console.error(`Error al importar pregunta ${p.id}:`, err);
+        }
+      }
+
+      setSuccess(
+        `✅ ${importadas} de ${preguntasParsed.length} preguntas importadas correctamente`
+      );
+      setImportText('');
+      setOpenImportDialog(false);
+      setPreguntasPorTema((prev) => ({ ...prev, [importTemaId]: [] }));
+      await loadPreguntasByTema(importTemaId);
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err) {
+      setError(err.message || 'Error al importar preguntas');
     } finally {
       setLoading(false);
     }
@@ -406,6 +498,22 @@ export const AdminTemas = () => {
                     {/* Preguntas del Tema (Expandible) */}
                     <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                       <Box sx={{ p: 2 }}>
+                        {/* Botón Importar CSV */}
+                        <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            startIcon={<CloudUploadIcon />}
+                            onClick={() => {
+                              setImportTemaId(tema.id);
+                              setOpenImportDialog(true);
+                            }}
+                          >
+                            Importar CSV
+                          </Button>
+                        </Stack>
+
                         {preguntas.length === 0 ? (
                           <Typography variant="body2" color="textSecondary">
                             No hay preguntas en este tema
@@ -589,6 +697,36 @@ export const AdminTemas = () => {
           <Button onClick={() => setOpenMoveDialog(false)}>Cancelar</Button>
           <Button onClick={confirmMovePreguntas} variant="contained" disabled={loading}>
             {loading ? 'Moviendo...' : 'Mover'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Importar CSV */}
+      <Dialog open={openImportDialog} onClose={() => setOpenImportDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Importar Preguntas desde CSV</DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Formato: ID|Enunciado|OpciónA|OpciónB|OpciónC|OpciónD|Respuesta|Explicación|Tip
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={10}
+            placeholder="Ejemplo:
+1|¿Cuál es la capital de España?|Madrid|Barcelona|Valencia|Sevilla|A|Madrid es la capital|Pista útil
+2|¿Cuánto es 2+2?|3|4|5|6|B|||"
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            sx={{ fontFamily: 'monospace' }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenImportDialog(false)}>Cancelar</Button>
+          <Button onClick={() => setImportText('')} disabled={loading}>
+            Limpiar
+          </Button>
+          <Button onClick={handleImportCSV} variant="contained" disabled={loading}>
+            {loading ? 'Importando...' : 'Importar'}
           </Button>
         </DialogActions>
       </Dialog>
