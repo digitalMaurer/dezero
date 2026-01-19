@@ -1,62 +1,127 @@
 import { PrismaClient } from '@prisma/client';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../utils/logger.js';
+import { getPreguntasConFiltro, ordenarPreguntas } from '../utils/filtroPreguntas.js';
 
 const prisma = new PrismaClient();
 
 // Crear un intento de test
 export const createTestAttempt = async (req, res, next) => {
   try {
-    const { oposicionId, temaId, temaIds, cantidad = 10, dificultad } = req.body;
+    const { 
+      oposicionId, 
+      temaId, 
+      temaIds, 
+      cantidad = 10, 
+      dificultad,
+      mode = 'ALEATORIO',
+      filtroTipo,
+      filtroOrden = 'ALEATORIO'
+    } = req.body;
     const userId = req.user.id;
 
     if (!oposicionId) {
       throw new AppError('oposicionId es requerido', 400);
     }
 
-    // Construir filtro para preguntas
-    const where = {
-      status: 'PUBLISHED',
-    };
-
     // Aceptar temaId (singular) o temaIds (array)
     const temasSeleccionados = temaIds && Array.isArray(temaIds) ? temaIds : (temaId ? [temaId] : null);
 
-    if (temasSeleccionados && temasSeleccionados.length > 0) {
-      where.temaId = {
-        in: temasSeleccionados,
+    let preguntas = [];
+
+    // Según el modo, obtener preguntas de diferente forma
+    if (mode === 'FILTRADO' && filtroTipo) {
+      // Modo filtrado: usar filtros avanzados
+      preguntas = await getPreguntasConFiltro(temasSeleccionados, filtroTipo, dificultad, userId);
+      preguntas = ordenarPreguntas(preguntas, filtroOrden);
+    } else if (mode === 'ANKI') {
+      // Modo Anki: solo preguntas vencidas
+      const hoy = new Date();
+      const where = {
+        status: 'PUBLISHED',
+        OR: [
+          { dueDate: null },
+          { dueDate: { lte: hoy } },
+        ],
       };
+
+      if (temasSeleccionados && temasSeleccionados.length > 0) {
+        where.temaId = { in: temasSeleccionados };
+      } else {
+        where.tema = { oposicionId };
+      }
+
+      if (dificultad) {
+        where.dificultad = dificultad;
+      }
+
+      preguntas = await prisma.pregunta.findMany({ where });
+    } else if (mode === 'REPASO') {
+      // Modo repaso: preguntas con estadísticas bajas
+      const where = {
+        status: 'PUBLISHED',
+      };
+
+      if (temasSeleccionados && temasSeleccionados.length > 0) {
+        where.temaId = { in: temasSeleccionados };
+      } else {
+        where.tema = { oposicionId };
+      }
+
+      if (dificultad) {
+        where.dificultad = dificultad;
+      }
+
+      preguntas = await prisma.pregunta.findMany({
+        where,
+        include: {
+          statistics: true,
+        },
+      });
+
+      // Filtrar las que tienen bajo porcentaje de acierto o nunca respondidas
+      preguntas = preguntas.filter((p) => {
+        const stats = p.statistics;
+        return !stats || stats.vecesRespondida === 0 || stats.porcentajeAcierto < 70;
+      });
     } else {
-      // Si no hay tema específico, buscar por oposición
-      where.tema = {
-        oposicionId,
+      // Modo aleatorio (default)
+      const where = {
+        status: 'PUBLISHED',
       };
-    }
 
-    if (dificultad) {
-      where.dificultad = dificultad;
-    }
+      if (temasSeleccionados && temasSeleccionados.length > 0) {
+        where.temaId = { in: temasSeleccionados };
+      } else {
+        where.tema = { oposicionId };
+      }
 
-    // Obtener preguntas aleatorias
-    const preguntas = await prisma.pregunta.findMany({
-      where,
-      take: parseInt(cantidad),
-    });
+      if (dificultad) {
+        where.dificultad = dificultad;
+      }
+
+      preguntas = await prisma.pregunta.findMany({ where });
+      // Mezclar aleatoriamente
+      preguntas = preguntas.sort(() => Math.random() - 0.5);
+    }
 
     if (preguntas.length === 0) {
       throw new AppError('No hay preguntas disponibles con esos criterios', 404);
     }
 
-    // Mezclar preguntas
-    const preguntasMezcladas = preguntas.sort(() => Math.random() - 0.5);
+    // Limitar a la cantidad solicitada
+    const preguntasSeleccionadas = preguntas.slice(0, parseInt(cantidad));
+
+    // Limitar a la cantidad solicitada
+    const preguntasSeleccionadas = preguntas.slice(0, parseInt(cantidad));
 
     // Crear el test
     const test = await prisma.test.create({
       data: {
-        nombre: `Test ${new Date().toLocaleDateString()}`,
-        cantidadPreguntas: preguntasMezcladas.length,
+        nombre: `Test ${mode} - ${new Date().toLocaleDateString()}`,
+        cantidadPreguntas: preguntasSeleccionadas.length,
         questions: {
-          create: preguntasMezcladas.map((p, index) => ({
+          create: preguntasSeleccionadas.map((p, index) => ({
             preguntaId: p.id,
             orden: index + 1,
           })),

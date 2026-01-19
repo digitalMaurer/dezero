@@ -35,6 +35,12 @@ export const Dashboard = () => {
       icon: '✍️',
     },
     {
+      title: 'Dashboard Anki',
+      description: 'Repaso con repetición espaciada',
+      path: '/anki',
+      icon: '🔄',
+    },
+    {
       title: 'Mis Estadísticas',
       description: 'Visualiza tu progreso y estadísticas',
       path: '/estadisticas',

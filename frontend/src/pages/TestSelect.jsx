@@ -107,72 +107,144 @@ export const TestSelect = () => {
   }
 
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="xl">
       <Box sx={{ py: 4 }}>
-        <Typography variant="h3" component="h1" gutterBottom>
-          📚 Selecciona Modo de Test
+        <Typography variant="h3" component="h1" gutterBottom align="center">
+          📚 Crear Test Personalizado
         </Typography>
-        <Typography variant="body1" color="textSecondary" sx={{ mb: 4 }}>
-          Elige el tipo de test que deseas realizar
+        <Typography variant="body1" color="textSecondary" align="center" sx={{ mb: 5 }}>
+          Elige el modo de test y la oposición
         </Typography>
 
-        {/* Selector de Modo */}
-        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'center' }}>
-          <ToggleButtonGroup
-            value={mode}
-            exclusive
-            onChange={handleModeChange}
-            aria-label="modo de test"
-            color="primary"
-            size="large"
-          >
-            <ToggleButton value="ALEATORIO" aria-label="aleatorio">
-              <CasinoIcon sx={{ mr: 1 }} />
-              Aleatorio
-            </ToggleButton>
-            <ToggleButton value="ANKI" aria-label="anki">
-              <RepeatIcon sx={{ mr: 1 }} />
-              Anki (Repaso)
-            </ToggleButton>
-            <ToggleButton value="REPASO" aria-label="repaso">
-              <BookIcon sx={{ mr: 1 }} />
-              Repaso
-            </ToggleButton>
-            <ToggleButton value="FILTRADO" aria-label="filtrado">
-              <FilterListIcon sx={{ mr: 1 }} />
-              Filtrado
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
+        {/* Selector de Modo con Cards */}
+        <Paper elevation={3} sx={{ p: 4, mb: 5 }}>
+          <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+            🎯 Paso 1: Selecciona el Modo de Test
+          </Typography>
+          
+          <Grid container spacing={3} sx={{ mb: 2 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                onClick={() => handleModeChange(null, 'ALEATORIO')}
+                sx={{
+                  cursor: 'pointer',
+                  border: mode === 'ALEATORIO' ? '3px solid #1976d2' : '1px solid #ddd',
+                  transition: 'all 0.3s',
+                  '&:hover': { transform: 'scale(1.05)', boxShadow: 4 },
+                  height: '100%',
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <CasinoIcon sx={{ fontSize: 50, color: '#1976d2', mb: 2 }} />
+                  <Typography variant="h6" gutterBottom>
+                    🎲 Aleatorio
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Preguntas al azar de los temas seleccionados
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                onClick={() => handleModeChange(null, 'ANKI')}
+                sx={{
+                  cursor: 'pointer',
+                  border: mode === 'ANKI' ? '3px solid #2e7d32' : '1px solid #ddd',
+                  transition: 'all 0.3s',
+                  '&:hover': { transform: 'scale(1.05)', boxShadow: 4 },
+                  height: '100%',
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <RepeatIcon sx={{ fontSize: 50, color: '#2e7d32', mb: 2 }} />
+                  <Typography variant="h6" gutterBottom>
+                    🔄 Anki
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Solo preguntas vencidas para repasar
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
 
-        {/* Descripción del modo */}
-        <Box sx={{ mb: 4, textAlign: 'center' }}>
-          {mode === 'ALEATORIO' && (
-            <Alert severity="info" sx={{ maxWidth: 600, mx: 'auto' }}>
-              <strong>Modo Aleatorio:</strong> Preguntas seleccionadas aleatoriamente de los temas elegidos.
-            </Alert>
-          )}
-          {mode === 'ANKI' && (
-            <Alert severity="success" sx={{ maxWidth: 600, mx: 'auto' }}>
-              <strong>Modo Anki:</strong> Solo preguntas que necesitan repaso según tu historial de respuestas.
-            </Alert>
-          )}
-          {mode === 'REPASO' && (
-            <Alert severity="warning" sx={{ maxWidth: 600, mx: 'auto' }}>
-              <strong>Modo Repaso:</strong> Preguntas vencidas o que requieren revisión.
-            </Alert>
-          )}
-          {mode === 'FILTRADO' && (
-            <Alert severity="error" sx={{ maxWidth: 600, mx: 'auto' }}>
-              <strong>Modo Filtrado:</strong> Filtra por "más mal respondidas", "última respuesta errónea", etc.
-            </Alert>
-          )}
-        </Box>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                onClick={() => handleModeChange(null, 'REPASO')}
+                sx={{
+                  cursor: 'pointer',
+                  border: mode === 'REPASO' ? '3px solid #ed6c02' : '1px solid #ddd',
+                  transition: 'all 0.3s',
+                  '&:hover': { transform: 'scale(1.05)', boxShadow: 4 },
+                  height: '100%',
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <BookIcon sx={{ fontSize: 50, color: '#ed6c02', mb: 2 }} />
+                  <Typography variant="h6" gutterBottom>
+                    📖 Repaso
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Preguntas pendientes de revisar
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card
+                onClick={() => handleModeChange(null, 'FILTRADO')}
+                sx={{
+                  cursor: 'pointer',
+                  border: mode === 'FILTRADO' ? '3px solid #d32f2f' : '1px solid #ddd',
+                  transition: 'all 0.3s',
+                  '&:hover': { transform: 'scale(1.05)', boxShadow: 4 },
+                  height: '100%',
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                  <FilterListIcon sx={{ fontSize: 50, color: '#d32f2f', mb: 2 }} />
+                  <Typography variant="h6" gutterBottom>
+                    🎯 Filtrado
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Filtros avanzados (errores, dificultad, etc.)
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+
+          {/* Descripción del modo */}
+          <Box sx={{ mt: 3 }}>
+            {mode === 'ALEATORIO' && (
+              <Alert severity="info">
+                <strong>Modo Aleatorio:</strong> Las preguntas se seleccionan aleatoriamente de los temas que elijas. Ideal para práctica general.
+              </Alert>
+            )}
+            {mode === 'ANKI' && (
+              <Alert severity="success">
+                <strong>Modo Anki (Repetición Espaciada):</strong> Solo verás preguntas que necesiten repaso según el algoritmo Anki. Las preguntas mal respondidas aparecen más frecuentemente.
+              </Alert>
+            )}
+            {mode === 'REPASO' && (
+              <Alert severity="warning">
+                <strong>Modo Repaso:</strong> Preguntas vencidas o que requieren revisión prioritaria.
+              </Alert>
+            )}
+            {mode === 'FILTRADO' && (
+              <Alert severity="error">
+                <strong>Modo Filtrado Avanzado:</strong> En el siguiente paso podrás elegir filtros específicos como "más mal respondidas", "última respuesta errónea", "nunca respondidas", etc.
+              </Alert>
+            )}
+          </Box>
+        </Paper>
 
         <Divider sx={{ mb: 4 }} />
 
-        <Typography variant="h5" gutterBottom>
-          Selecciona una Oposición
+        <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+          📋 Paso 2: Selecciona una Oposición
         </Typography>
 
         <Grid container spacing={3}>

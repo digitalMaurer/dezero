@@ -37,6 +37,9 @@ export const TestCreate = () => {
     cantidad: 10,
     dificultad: '',
     mode: mode,
+    // Filtros avanzados
+    filtroTipo: '', // MAS_ERRONEAS, ULTIMA_ERRONEA, NUNCA_RESPONDIDAS, etc.
+    filtroOrden: 'ALEATORIO', // ALEATORIO, DIFICULTAD_ASC, DIFICULTAD_DESC
   });
 
   useEffect(() => {
@@ -94,6 +97,7 @@ export const TestCreate = () => {
       const testData = {
         oposicionId,
         cantidad: parseInt(formData.cantidad),
+        mode: formData.mode,
       };
 
       // Si hay temas seleccionados, pasarlos como array
@@ -103,6 +107,14 @@ export const TestCreate = () => {
 
       if (formData.dificultad) {
         testData.dificultad = formData.dificultad;
+      }
+
+      // Agregar filtros si está en modo FILTRADO
+      if (formData.mode === 'FILTRADO') {
+        if (formData.filtroTipo) {
+          testData.filtroTipo = formData.filtroTipo;
+        }
+        testData.filtroOrden = formData.filtroOrden;
       }
 
       const response = await testsService.createAttempt(testData);
@@ -250,6 +262,73 @@ export const TestCreate = () => {
                 <MenuItem value="HARD">Difícil</MenuItem>
               </Select>
             </FormControl>
+
+            {/* Filtros avanzados solo en modo FILTRADO */}
+            {mode === 'FILTRADO' && (
+              <>
+                <Typography variant="h6" sx={{ mb: 2, mt: 3 }}>
+                  🎯 Filtros Avanzados
+                </Typography>
+
+                <FormControl fullWidth sx={{ mb: 3 }}>
+                  <InputLabel>Tipo de Filtro</InputLabel>
+                  <Select
+                    name="filtroTipo"
+                    value={formData.filtroTipo}
+                    onChange={handleChange}
+                    label="Tipo de Filtro"
+                  >
+                    <MenuItem value="">
+                      <em>Sin filtro específico</em>
+                    </MenuItem>
+                    <MenuItem value="MAS_ERRONEAS">
+                      ❌ Más veces mal respondidas
+                    </MenuItem>
+                    <MenuItem value="ULTIMA_ERRONEA">
+                      🔴 Última respuesta errónea
+                    </MenuItem>
+                    <MenuItem value="NUNCA_RESPONDIDAS">
+                      ⭕ Nunca respondidas
+                    </MenuItem>
+                    <MenuItem value="PEOR_PORCENTAJE">
+                      📉 Peor porcentaje de acierto
+                    </MenuItem>
+                    <MenuItem value="MAS_RESPONDIDAS">
+                      🔄 Más veces respondidas
+                    </MenuItem>
+                    <MenuItem value="MENOS_RESPONDIDAS">
+                      ⚪ Menos veces respondidas
+                    </MenuItem>
+                    <MenuItem value="SOLO_INCORRECTAS">
+                      ⛔ Solo incorrectas alguna vez
+                    </MenuItem>
+                    <MenuItem value="REVISION_PENDIENTE">
+                      ⏰ Revisión pendiente (Anki)
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth sx={{ mb: 3 }}>
+                  <InputLabel>Orden de preguntas</InputLabel>
+                  <Select
+                    name="filtroOrden"
+                    value={formData.filtroOrden}
+                    onChange={handleChange}
+                    label="Orden de preguntas"
+                  >
+                    <MenuItem value="ALEATORIO">🎲 Aleatorio</MenuItem>
+                    <MenuItem value="DIFICULTAD_ASC">📈 Dificultad ascendente (fácil → difícil)</MenuItem>
+                    <MenuItem value="DIFICULTAD_DESC">📉 Dificultad descendente (difícil → fácil)</MenuItem>
+                    <MenuItem value="MAS_ERRORES">❌ Más errores primero</MenuItem>
+                    <MenuItem value="MENOS_ERRORES">✅ Menos errores primero</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <Alert severity="info" sx={{ mb: 3 }}>
+                  Los filtros se aplican a las preguntas de los temas seleccionados arriba.
+                </Alert>
+              </>
+            )}
 
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Button

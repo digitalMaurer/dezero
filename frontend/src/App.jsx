@@ -11,6 +11,7 @@ import { TestCreate } from './pages/TestCreate';
 import { TestTake } from './pages/TestTake';
 import { TestResults } from './pages/TestResults';
 import { Estadisticas } from './pages/Estadisticas';
+import { DashboardAnki } from './pages/DashboardAnki';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminPreguntas } from './pages/AdminPreguntas';
 import { AdminTemas } from './pages/AdminTemas';
@@ -109,6 +110,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Estadisticas />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/anki"
+            element={
+              <ProtectedRoute>
+                <DashboardAnki />
               </ProtectedRoute>
             }
           />
