@@ -475,6 +475,39 @@ export const answerQuestionManicomio = async (req, res, next) => {
   }
 };
 
+// Eliminar un intento de test en curso
+export const deleteTestAttempt = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const attempt = await prisma.testAttempt.findFirst({
+      where: { id, userId },
+    });
+
+    if (!attempt) {
+      throw new AppError('Intento de test no encontrado', 404);
+    }
+
+    // Eliminar respuestas asociadas y el intento
+    await prisma.testAttempt.delete({
+      where: { id },
+    });
+
+    logger.info(`✅ Test attempt eliminado: ${id}`);
+
+    res.json({
+      success: true,
+      message: 'Test eliminado correctamente',
+    });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return next(new AppError('Intento de test no encontrado', 404));
+    }
+    next(error);
+  }
+};
+
 // Obtener resultado de un intento
 export const getTestAttempt = async (req, res, next) => {
   try {

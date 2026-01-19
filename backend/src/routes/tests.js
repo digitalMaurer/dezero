@@ -6,6 +6,7 @@ import {
   getTestAttempt,
   getUserTestHistory,
   getUserStats,
+  deleteTestAttempt,
 } from '../controllers/testsController.js';
 import { authMiddleware } from '../middleware/auth.js';
 
@@ -15,6 +16,7 @@ router.post('/attempts', authMiddleware, createTestAttempt);
 router.post('/attempts/submit', authMiddleware, submitTestAttempt);
 router.post('/attempts/:id/answer', authMiddleware, answerQuestionManicomio);
 router.get('/attempts/:id', authMiddleware, getTestAttempt);
+router.delete('/attempts/:id', authMiddleware, deleteTestAttempt);
 router.get('/history', authMiddleware, getUserTestHistory);
 router.get('/stats', authMiddleware, getUserStats);
 

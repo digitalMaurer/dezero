@@ -51,6 +51,8 @@ const TestTake = () => {
   const [feedback, setFeedback] = useState(null);
   const [streakCurrent, setStreakCurrent] = useState(0);
   const [streakMax, setStreakMax] = useState(0);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadTest = async () => {
     setLoading(true);
@@ -184,19 +186,26 @@ const TestTake = () => {
     setError(null);
 
     try {
-      const respuestasArray = testData.preguntas.map((pregunta) => ({
-        preguntaId: pregunta.id,
-        respuestaUsuario: respuestas[pregunta.id] || '',
-      }));
+      // Para Manicomio, simplemente marcar como finalizado sin enviar respuestas
+      if (isManicomio) {
+        navigate(`/test/results/${attemptId}`);
+        localStorage.removeItem(`test_${attemptId}`);
+        localStorage.removeItem(`test_answers_${attemptId}`);
+      } else {
+        const respuestasArray = testData.preguntas.map((pregunta) => ({
+          preguntaId: pregunta.id,
+          respuestaUsuario: respuestas[pregunta.id] || '',
+        }));
 
-      const response = await testsService.submitAttempt(attemptId, respuestasArray);
+        const response = await testsService.submitAttempt(attemptId, respuestasArray);
 
-      localStorage.removeItem(`test_${attemptId}`);
-      localStorage.removeItem(`test_answers_${attemptId}`);
+        localStorage.removeItem(`test_${attemptId}`);
+        localStorage.removeItem(`test_answers_${attemptId}`);
 
-      navigate(`/test/results/${attemptId}`, {
-        state: { results: response.data || response },
-      });
+        navigate(`/test/results/${attemptId}`, {
+          state: { results: response.data || response },
+        });
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Error al finalizar el test');
       console.error(err);
@@ -293,12 +302,39 @@ const TestTake = () => {
         return;
       }
 
-      if (currentQuestionIndex < testData.preguntas.length - 1) {
-        setCurrentQuestionIndex((prev) => prev + 1);
+      // Buscar la próxima pregunta sin responder
+      const nextUnansweredIndex = testData.preguntas.findIndex(
+        (q, idx) => idx > currentQuestionIndex && !respuestas[q.id]
+      );
+
+      if (nextUnansweredIndex !== -1) {
+        setCurrentQuestionIndex(nextUnansweredIndex);
       }
+      setFeedback(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Error al enviar la respuesta');
       console.error(err);
+    }
+  };
+
+  const handleDeleteTestAttempt = async () => {
+    const confirmed = window.confirm('¿Seguro que quieres eliminar este test en curso? No se podrá recuperar.');
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError(null);
+
+    try {
+      await testsService.deleteAttempt(attemptId);
+      localStorage.removeItem(`test_${attemptId}`);
+      localStorage.removeItem(`test_answers_${attemptId}`);
+      setOpenDeleteDialog(false);
+      navigate('/estadisticas');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error al eliminar el test');
+      console.error(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -313,6 +349,37 @@ const TestTake = () => {
 
   const isManicomio = testData?.mode === 'MANICOMIO';
   const currentQuestion = testData?.preguntas?.[currentQuestionIndex];
+
+  // Función para mezclar opciones de manera determinista (misma pregunta siempre igual)
+  const getShuffledOptions = (question) => {
+    if (!question) return [];
+    
+    const options = [
+      { label: 'A', text: question.opcionA, original: 'A' },
+      { label: 'B', text: question.opcionB, original: 'B' },
+      { label: 'C', text: question.opcionC, original: 'C' },
+    ];
+    
+    if (question.opcionD) {
+      options.push({ label: 'D', text: question.opcionD, original: 'D' });
+    }
+
+    // Usar el ID de la pregunta como seed para mantener consistencia
+    // Mezcla de Fisher-Yates con seed basado en preguntaId
+    const seed = question.id.charCodeAt(0) + question.id.charCodeAt(question.id.length - 1);
+    let shuffled = [...options];
+    
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = (seed + i) % (i + 1);
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    
+    return shuffled;
+  };
+
+  const shuffledOptions = useMemo(() => {
+    return getShuffledOptions(currentQuestion);
+  }, [currentQuestion?.id]);
 
   const progress = useMemo(() => {
     if (!testData?.preguntas?.length) return 0;
@@ -347,7 +414,7 @@ const TestTake = () => {
   return (
     <Container maxWidth="lg">
       <Box sx={{ py: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2 }}>
           <Box sx={{ flex: 1 }}>
             <Typography variant="h4" gutterBottom>
               ✍️ Test en Progreso
@@ -361,6 +428,18 @@ const TestTake = () => {
               </Typography>
             )}
           </Box>
+
+          <Tooltip title="Eliminar este test en curso">
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              onClick={() => setOpenDeleteDialog(true)}
+              sx={{ mt: 1 }}
+            >
+              🗑️ Eliminar Test
+            </Button>
+          </Tooltip>
 
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <Paper
@@ -443,12 +522,15 @@ const TestTake = () => {
                   value={respuestas[currentQuestion.id] || ''}
                   onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
                 >
-                  <FormControlLabel value="A" control={<Radio />} label={`A) ${currentQuestion.opcionA}`} sx={{ mb: 2 }} />
-                  <FormControlLabel value="B" control={<Radio />} label={`B) ${currentQuestion.opcionB}`} sx={{ mb: 2 }} />
-                  <FormControlLabel value="C" control={<Radio />} label={`C) ${currentQuestion.opcionC}`} sx={{ mb: 2 }} />
-                  {currentQuestion.opcionD && (
-                    <FormControlLabel value="D" control={<Radio />} label={`D) ${currentQuestion.opcionD}`} sx={{ mb: 2 }} />
-                  )}
+                  {shuffledOptions.map((option) => (
+                    <FormControlLabel
+                      key={option.original}
+                      value={option.original}
+                      control={<Radio />}
+                      label={`${option.label}) ${option.text}`}
+                      sx={{ mb: 2 }}
+                    />
+                  ))}
                   {!isManicomio && (
                     <FormControlLabel
                       value=""
@@ -676,6 +758,22 @@ const TestTake = () => {
             </Button>
             <Button onClick={handleSubmitReport} variant="contained" color="warning" disabled={reportSubmitting || !reportMessage.trim()}>
               {reportSubmitting ? 'Enviando...' : 'Enviar Reporte'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Diálogo eliminar test */}
+        <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
+          <DialogTitle>🗑️ Eliminar Test en Curso</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" sx={{ mt: 2 }}>
+              ¿Seguro que quieres eliminar este test? No se podrá recuperar.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenDeleteDialog(false)}>Cancelar</Button>
+            <Button color="error" onClick={handleDeleteTestAttempt} disabled={deleting}>
+              {deleting ? 'Eliminando...' : 'Eliminar'}
             </Button>
           </DialogActions>
         </Dialog>

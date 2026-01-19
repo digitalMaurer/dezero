@@ -102,6 +102,7 @@ export const createPregunta = async (req, res, next) => {
       dificultad = 'MEDIUM',
       status = 'DRAFT',
       temaId,
+      imageUrl,
     } = req.body;
 
     // Validaciones
@@ -139,6 +140,7 @@ export const createPregunta = async (req, res, next) => {
         dificultad,
         status,
         temaId,
+        imageUrl,
       },
       include: {
         tema: {
@@ -221,6 +223,24 @@ export const deletePregunta = async (req, res, next) => {
     if (error.code === 'P2025') {
       return next(new AppError('Pregunta no encontrada', 404));
     }
+    next(error);
+  }
+};
+
+export const uploadPreguntaImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new AppError('No se recibió ninguna imagen', 400);
+    }
+
+    const imageUrl = `/uploads/preguntas/${req.file.filename}`;
+
+    res.status(201).json({
+      success: true,
+      message: 'Imagen subida correctamente',
+      data: { imageUrl, originalName: req.file.originalname },
+    });
+  } catch (error) {
     next(error);
   }
 };

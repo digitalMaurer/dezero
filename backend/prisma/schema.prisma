@@ -80,6 +80,7 @@ model Pregunta {
   explicacion String?
   dificultad String @default("MEDIUM") // EASY, MEDIUM, HARD
   status    String @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  imageUrl  String?
   
   // Campos Anki para repetición espaciada
   easeFactor Float @default(2.5) // Factor de facilidad (default 2.5 según SM-2)

@@ -81,6 +81,7 @@ export const preguntasService = {
     const response = await apiClient.delete(`/preguntas/${id}`);
     return response.data;
   },
+
   async bulkUpdateTema(ids, temaId) {
     const response = await apiClient.post('/preguntas/bulk-update-tema', { ids, temaId });
     return response.data;
@@ -88,6 +89,13 @@ export const preguntasService = {
 
   async reportQuestion(preguntaId, data) {
     const response = await apiClient.post(`/preguntas/${preguntaId}/report`, data);
+    return response.data;
+  },
+
+  async uploadImage(formData) {
+    const response = await apiClient.post('/preguntas/upload-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 };
@@ -113,6 +121,11 @@ export const testsService = {
 
   async getAttempt(id) {
     const response = await apiClient.get(`/tests/attempts/${id}`);
+    return response.data;
+  },
+
+  async deleteAttempt(id) {
+    const response = await apiClient.delete(`/tests/attempts/${id}`);
     return response.data;
   },
 

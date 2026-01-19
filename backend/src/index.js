@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth.js';
 import oposicionesRoutes from './routes/oposiciones.js';
@@ -9,6 +10,7 @@ import preguntasRoutes from './routes/preguntas.js';
 import testsRoutes from './routes/tests.js';
 import reportsRoutes from './routes/reports.js';
 import ankiRoutes from './routes/anki.js';
+import maintenanceRoutes from './routes/maintenance.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { logger } from './utils/logger.js';
 
@@ -25,6 +27,7 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Logger middleware
 app.use((req, res, next) => {
@@ -40,6 +43,7 @@ app.use('/api/v1/preguntas', preguntasRoutes);
 app.use('/api/v1/tests', testsRoutes);
 app.use('/api/v1', reportsRoutes);
 app.use('/api/v1/anki', ankiRoutes);
+app.use('/api/v1/maintenance', maintenanceRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

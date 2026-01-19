@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -45,6 +45,26 @@ export const AdminPreguntas = () => {
   const [selectedOposicion, setSelectedOposicion] = useState('');
   const [selectedTema, setSelectedTema] = useState('');
 
+  // Estados para importación con imagen
+  const [selectedOposicionImage, setSelectedOposicionImage] = useState('');
+  const [selectedTemaImage, setSelectedTemaImage] = useState('');
+  const [temasImagen, setTemasImagen] = useState([]);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageForm, setImageForm] = useState({
+    titulo: '',
+    enunciado: '',
+    opcionA: '',
+    opcionB: '',
+    opcionC: '',
+    opcionD: '',
+    respuestaCorrecta: 'A',
+    explicacion: '',
+    tip: '',
+    dificultad: 'MEDIUM',
+  });
+
   // Listas
   const [oposiciones, setOposiciones] = useState([]);
   const [temas, setTemas] = useState([]);
@@ -74,6 +94,15 @@ export const AdminPreguntas = () => {
       loadTemas(selectedOposicion);
     }
   }, [selectedOposicion]);
+
+  useEffect(() => {
+    if (selectedOposicionImage) {
+      loadTemasImagen(selectedOposicionImage);
+    } else {
+      setTemasImagen([]);
+      setSelectedTemaImage('');
+    }
+  }, [selectedOposicionImage]);
 
   useEffect(() => {
     const loadTargetTemas = async () => {
@@ -153,6 +182,17 @@ export const AdminPreguntas = () => {
     } catch (err) {
       console.error(err);
       setError('Error al cargar temas');
+    }
+  };
+
+  const loadTemasImagen = async (oposicionId) => {
+    try {
+      const response = await temasService.getAll(oposicionId);
+      const data = response.data?.temas || response.temas || [];
+      setTemasImagen(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      setTemasImagen([]);
     }
   };
 
@@ -264,6 +304,93 @@ export const AdminPreguntas = () => {
     }
   };
 
+  const handleImageFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const resetImageForm = () => {
+    setImageForm({
+      titulo: '',
+      enunciado: '',
+      opcionA: '',
+      opcionB: '',
+      opcionC: '',
+      opcionD: '',
+      respuestaCorrecta: 'A',
+      explicacion: '',
+      tip: '',
+      dificultad: 'MEDIUM',
+    });
+    setImageFile(null);
+    setImagePreview(null);
+  };
+
+  const handleCreateWithImage = async () => {
+    if (!selectedOposicionImage) {
+      setError('Selecciona una oposición');
+      return;
+    }
+    if (!selectedTemaImage) {
+      setError('Selecciona un tema');
+      return;
+    }
+    if (!imageFile) {
+      setError('Añade una imagen');
+      return;
+    }
+    if (!imageForm.enunciado.trim() || !imageForm.opcionA.trim() || !imageForm.opcionB.trim() || !imageForm.opcionC.trim()) {
+      setError('Completa enunciado y opciones A, B y C');
+      return;
+    }
+    if (!['A', 'B', 'C', 'D'].includes(imageForm.respuestaCorrecta)) {
+      setError('Respuesta correcta debe ser A, B, C o D');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setError(null);
+
+      const formData = new FormData();
+      formData.append('image', imageFile);
+
+      const uploadRes = await preguntasService.uploadImage(formData);
+      const imageUrl = uploadRes.data?.imageUrl || uploadRes.data?.data?.imageUrl || uploadRes.imageUrl;
+
+      if (!imageUrl) {
+        throw new Error('No se pudo obtener la URL de la imagen');
+      }
+
+      await preguntasService.create({
+        titulo: imageForm.titulo || 'Pregunta con imagen',
+        enunciado: imageForm.enunciado,
+        opcionA: imageForm.opcionA,
+        opcionB: imageForm.opcionB,
+        opcionC: imageForm.opcionC,
+        opcionD: imageForm.opcionD,
+        respuestaCorrecta: imageForm.respuestaCorrecta,
+        explicacion: imageForm.explicacion,
+        tip: imageForm.tip,
+        dificultad: imageForm.dificultad,
+        status: 'PUBLISHED',
+        temaId: selectedTemaImage,
+        imageUrl,
+      });
+
+      setSuccess('Pregunta con imagen creada');
+      resetImageForm();
+      loadPreguntas();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Error al crear la pregunta con imagen');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleDelete = async (preguntaId) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar esta pregunta?')) {
       try {
@@ -363,6 +490,7 @@ export const AdminPreguntas = () => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)}>
             <Tab label="📥 Importar Preguntas" />
+            <Tab label="🖼️ Importar con Imagen" />
             <Tab label="📋 Gestionar Preguntas" />
             <Tab label={`🚩 Reportes (${reports.length})`} />
           </Tabs>
@@ -477,8 +605,172 @@ export const AdminPreguntas = () => {
           </Paper>
         )}
 
-        {/* Tab 2: Gestionar */}
+        {/* Tab 2: Importar con Imagen */}
         {tabValue === 1 && (
+          <Paper elevation={3} sx={{ p: 4 }}>
+            <Typography variant="h6" gutterBottom>
+              Importar Pregunta con Imagen
+            </Typography>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
+              <FormControl fullWidth>
+                <InputLabel>Oposición</InputLabel>
+                <Select
+                  value={selectedOposicionImage}
+                  onChange={(e) => {
+                    setSelectedOposicionImage(e.target.value);
+                    setSelectedTemaImage('');
+                  }}
+                  label="Oposición"
+                >
+                  {oposiciones.map((op) => (
+                    <MenuItem key={op.id} value={op.id}>
+                      {op.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth disabled={!selectedOposicionImage}>
+                <InputLabel>Tema</InputLabel>
+                <Select
+                  value={selectedTemaImage}
+                  onChange={(e) => setSelectedTemaImage(e.target.value)}
+                  label="Tema"
+                >
+                  {temasImagen.map((tema) => (
+                    <MenuItem key={tema.id} value={tema.id}>
+                      {tema.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Cargar imagen */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                1. Añadir imagen
+              </Typography>
+              <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />}>
+                Seleccionar imagen
+                <input type="file" accept="image/*" hidden onChange={handleImageFileChange} />
+              </Button>
+              {imagePreview && (
+                <Box sx={{ mt: 2, textAlign: 'center' }}>
+                  <img src={imagePreview} alt="Preview" style={{ maxWidth: '100%', maxHeight: '300px', border: '2px solid #ccc', borderRadius: '8px' }} />
+                </Box>
+              )}
+            </Box>
+
+            {/* Formulario pregunta */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                2. Crear pregunta
+              </Typography>
+              <Box sx={{ display: 'grid', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Título (opcional)"
+                  value={imageForm.titulo}
+                  onChange={(e) => setImageForm({ ...imageForm, titulo: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={2}
+                  label="Enunciado *"
+                  value={imageForm.enunciado}
+                  onChange={(e) => setImageForm({ ...imageForm, enunciado: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  label="Opción A *"
+                  value={imageForm.opcionA}
+                  onChange={(e) => setImageForm({ ...imageForm, opcionA: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  label="Opción B *"
+                  value={imageForm.opcionB}
+                  onChange={(e) => setImageForm({ ...imageForm, opcionB: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  label="Opción C *"
+                  value={imageForm.opcionC}
+                  onChange={(e) => setImageForm({ ...imageForm, opcionC: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  label="Opción D (opcional)"
+                  value={imageForm.opcionD}
+                  onChange={(e) => setImageForm({ ...imageForm, opcionD: e.target.value })}
+                />
+
+                <FormControl fullWidth>
+                  <InputLabel>Respuesta Correcta *</InputLabel>
+                  <Select
+                    value={imageForm.respuestaCorrecta}
+                    label="Respuesta Correcta *"
+                    onChange={(e) => setImageForm({ ...imageForm, respuestaCorrecta: e.target.value })}
+                  >
+                    <MenuItem value="A">A</MenuItem>
+                    <MenuItem value="B">B</MenuItem>
+                    <MenuItem value="C">C</MenuItem>
+                    <MenuItem value="D">D</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={2}
+                  label="Explicación (opcional)"
+                  value={imageForm.explicacion}
+                  onChange={(e) => setImageForm({ ...imageForm, explicacion: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  label="Tip (opcional)"
+                  value={imageForm.tip}
+                  onChange={(e) => setImageForm({ ...imageForm, tip: e.target.value })}
+                />
+
+                <FormControl fullWidth>
+                  <InputLabel>Dificultad</InputLabel>
+                  <Select
+                    value={imageForm.dificultad}
+                    label="Dificultad"
+                    onChange={(e) => setImageForm({ ...imageForm, dificultad: e.target.value })}
+                  >
+                    <MenuItem value="EASY">Fácil</MenuItem>
+                    <MenuItem value="MEDIUM">Media</MenuItem>
+                    <MenuItem value="HARD">Difícil</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={handleCreateWithImage}
+                disabled={uploadingImage || loading}
+              >
+                {uploadingImage ? 'Subiendo...' : 'Crear Pregunta con Imagen'}
+              </Button>
+              <Button variant="outlined" onClick={resetImageForm}>
+                Limpiar
+              </Button>
+            </Box>
+          </Paper>
+        )}
+
+        {/* Tab 3: Gestionar */}
+        {tabValue === 2 && (
           <Box>
             <Typography variant="h6" gutterBottom>
               Total: {preguntas.length} preguntas
@@ -604,8 +896,8 @@ export const AdminPreguntas = () => {
           </Box>
         )}
 
-        {/* Tab 3: Reportes */}
-        {tabValue === 2 && (
+        {/* Tab 4: Reportes */}
+        {tabValue === 3 && (
           <Box>
             {reports.length === 0 ? (
               <Alert severity="info">No hay reportes pendientes</Alert>
@@ -949,3 +1241,4 @@ export const AdminPreguntas = () => {
     </Container>
   );
 };
+
