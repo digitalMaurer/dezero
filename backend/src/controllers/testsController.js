@@ -6,6 +6,21 @@ import { shuffleQuestionOptions } from '../utils/shuffleUtils.js';
 
 const prisma = new PrismaClient();
 
+// Validar que una pregunta tenga todos los campos requeridos
+const isPreguntaValid = (pregunta) => {
+  return (
+    pregunta &&
+    pregunta.id &&
+    pregunta.titulo &&
+    pregunta.enunciado &&
+    pregunta.opcionA &&
+    pregunta.opcionB &&
+    pregunta.opcionC &&
+    pregunta.respuestaCorrecta &&
+    ['A', 'B', 'C', 'D'].includes(pregunta.respuestaCorrecta)
+  );
+};
+
 // Crear un intento de test
 export const createTestAttempt = async (req, res, next) => {
   try {
@@ -489,6 +504,11 @@ export const answerQuestionManicomio = async (req, res, next) => {
       throw new AppError('La pregunta no existe', 404);
     }
 
+    // Validar que la pregunta esté completa
+    if (!isPreguntaValid(pregunta)) {
+      throw new AppError('La pregunta está incompleta', 400);
+    }
+
     // Verificar que la pregunta pertenezca a al menos un tema del test (seguridad)
     const temasDest = attempt.test.questions.map((q) => q.pregunta.temaId);
     if (!temasDest.includes(pregunta.temaId)) {
@@ -672,14 +692,21 @@ export const getNextManicomioQuestion = async (req, res, next) => {
           ...(temaIds.length > 0 && { temaId: { in: temaIds } }),
           ...(dificultad && { dificultad }),
         },
-        take: 10, // Cargar algunas más para elegir aleatoriamente
+        take: 20, // Cargar más para tener buffer de válidas
       });
 
       if (nuevas.length === 0) {
         throw new AppError('No hay preguntas disponibles', 404);
       }
 
-      const selected = nuevas[Math.floor(Math.random() * nuevas.length)];
+      // Filtrar solo preguntas válidas (con todos los campos requeridos)
+      const validas = nuevas.filter(isPreguntaValid);
+
+      if (validas.length === 0) {
+        throw new AppError('No hay preguntas válidas disponibles', 404);
+      }
+
+      const selected = validas[Math.floor(Math.random() * validas.length)];
       const shuffled = shuffleQuestionOptions(selected);
 
       return res.json({
@@ -702,6 +729,11 @@ export const getNextManicomioQuestion = async (req, res, next) => {
     
     if (!nextQuestion || !nextQuestion.pregunta) {
       throw new AppError('Pregunta no válida', 400);
+    }
+
+    // Validar que la pregunta tenga todos los campos requeridos
+    if (!isPreguntaValid(nextQuestion.pregunta)) {
+      throw new AppError('La pregunta seleccionada está incompleta', 400);
     }
 
     const shuffled = shuffleQuestionOptions(nextQuestion.pregunta);
