@@ -17,19 +17,32 @@ import {
   ToggleButtonGroup,
   Divider,
   Paper,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormControlLabel,
+  Checkbox,
+  FormGroup,
 } from '@mui/material';
 import CasinoIcon from '@mui/icons-material/Casino';
 import RepeatIcon from '@mui/icons-material/Repeat';
 import BookIcon from '@mui/icons-material/Book';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
-import { oposicionesService } from '../services/apiServices';
+import { oposicionesService, testsService } from '../services/apiServices';
 
 export const TestSelect = () => {
   const [oposiciones, setOposiciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [mode, setMode] = useState('ALEATORIO');
+  const [manicomioSetup, setManicomioSetup] = useState({
+    selectedOposicionId: null,
+    selectedTemasIds: [],
+    streakTarget: 30,
+    submitting: false,
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,7 +70,75 @@ export const TestSelect = () => {
   };
 
   const handleSelectOposicion = (oposicionId) => {
-    navigate(`/test/create?oposicionId=${oposicionId}&mode=${mode}`);
+    if (mode === 'MANICOMIO') {
+      // Para MANICOMIO, mostrar form inline en lugar de ir a TestCreate
+      setManicomioSetup((prev) => ({
+        ...prev,
+        selectedOposicionId: oposicionId,
+        selectedTemasIds: [], // Reset temas
+      }));
+    } else {
+      navigate(`/test/create?oposicionId=${oposicionId}&mode=${mode}`);
+    }
+  };
+
+  const handleManicomioCreateTest = async () => {
+    if (!manicomioSetup.selectedOposicionId) {
+      setError('Selecciona una oposición');
+      return;
+    }
+
+    setManicomioSetup((prev) => ({ ...prev, submitting: true }));
+    setError(null);
+
+    try {
+      const testData = {
+        oposicionId: manicomioSetup.selectedOposicionId,
+        mode: 'MANICOMIO',
+        streakTarget: manicomioSetup.streakTarget,
+      };
+
+      if (manicomioSetup.selectedTemasIds.length > 0) {
+        testData.temaIds = manicomioSetup.selectedTemasIds;
+      }
+
+      const response = await testsService.createAttempt(testData);
+      const attemptId = response.data.attemptId;
+
+      // Guardar los datos del test en localStorage
+      localStorage.setItem(
+        `test_${attemptId}`,
+        JSON.stringify(response.data)
+      );
+
+      // Ir directamente a TestTake
+      navigate(`/test/${attemptId}`);
+    } catch (err) {
+      setError(
+        err.response?.data?.message || 'Error al crear el test'
+      );
+      console.error(err);
+    } finally {
+      setManicomioSetup((prev) => ({ ...prev, submitting: false }));
+    }
+  };
+
+  const handleManicomioCancel = () => {
+    setManicomioSetup({
+      selectedOposicionId: null,
+      selectedTemasIds: [],
+      streakTarget: 30,
+      submitting: false,
+    });
+  };
+
+  const handleManicomioTemaToggle = (temaId) => {
+    setManicomioSetup((prev) => ({
+      ...prev,
+      selectedTemasIds: prev.selectedTemasIds.includes(temaId)
+        ? prev.selectedTemasIds.filter((id) => id !== temaId)
+        : [...prev.selectedTemasIds, temaId],
+    }));
   };
 
   if (loading) {
@@ -331,6 +412,93 @@ export const TestSelect = () => {
             </Grid>
           ))}
         </Grid>
+
+        {/* MANICOMIO: Form inline para configurar temas y streak */}
+        {mode === 'MANICOMIO' && manicomioSetup.selectedOposicionId && (
+          <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: '#fff5f6' }}>
+            <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+              🌀 Configurar Modo Manicomio
+            </Typography>
+
+            {error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
+              </Alert>
+            )}
+
+            {(() => {
+              const selectedOposicion = oposiciones.find(
+                (o) => o.id === manicomioSetup.selectedOposicionId
+              );
+              const temas = selectedOposicion?.temas || [];
+
+              return (
+                <>
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="body1" sx={{ mb: 1, fontWeight: 'bold' }}>
+                      📚 Temas (opcional - dejar vacío para todos)
+                    </Typography>
+                    <FormGroup row>
+                      {temas.map((tema) => (
+                        <FormControlLabel
+                          key={tema.id}
+                          control={
+                            <Checkbox
+                              checked={manicomioSetup.selectedTemasIds.includes(tema.id)}
+                              onChange={() => handleManicomioTemaToggle(tema.id)}
+                            />
+                          }
+                          label={`${tema.nombre} (${tema._count?.preguntas || 0})`}
+                        />
+                      ))}
+                    </FormGroup>
+                  </Box>
+
+                  <Box sx={{ mb: 3 }}>
+                    <FormControl fullWidth>
+                      <InputLabel>🎯 Aciertos seguidos para terminar</InputLabel>
+                      <Select
+                        value={manicomioSetup.streakTarget}
+                        onChange={(e) =>
+                          setManicomioSetup((prev) => ({
+                            ...prev,
+                            streakTarget: e.target.value,
+                          }))
+                        }
+                        label="🎯 Aciertos seguidos para terminar"
+                      >
+                        <MenuItem value={10}>10 aciertos</MenuItem>
+                        <MenuItem value={20}>20 aciertos</MenuItem>
+                        <MenuItem value={30}>30 aciertos (recomendado)</MenuItem>
+                        <MenuItem value={50}>50 aciertos</MenuItem>
+                        <MenuItem value={100}>100 aciertos (Legión)</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
+
+                  <Stack direction="row" spacing={2}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleManicomioCreateTest}
+                      disabled={manicomioSetup.submitting}
+                      sx={{ flex: 1 }}
+                    >
+                      {manicomioSetup.submitting ? 'Creando...' : '🚀 Comenzar Manicomio'}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={handleManicomioCancel}
+                      disabled={manicomioSetup.submitting}
+                    >
+                      Cancelar
+                    </Button>
+                  </Stack>
+                </>
+              );
+            })()}
+          </Paper>
+        )}
 
         <Box sx={{ mt: 4, display: 'flex', gap: 2 }}>
           <Button
