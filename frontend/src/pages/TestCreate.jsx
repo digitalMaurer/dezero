@@ -34,7 +34,7 @@ export const TestCreate = () => {
 
   const [formData, setFormData] = useState({
     temaIds: [],
-    cantidad: 10,
+    cantidad: '', // Dejar vacío por defecto para usar todas
     dificultad: '',
     mode: mode,
     // Filtros avanzados
@@ -189,7 +189,8 @@ export const TestCreate = () => {
                     ...prev,
                     mode: value,
                     // Para simulacro fijamos 100 preguntas por defecto
-                    cantidad: value === 'SIMULACRO_EXAMEN' ? '100' : prev.cantidad,
+                    // Para aleatorio, dejamos vacío para usar todas
+                    cantidad: value === 'SIMULACRO_EXAMEN' ? '100' : '',
                   }));
                 }}
               >
@@ -266,7 +267,13 @@ export const TestCreate = () => {
               type="text"
               name="cantidad"
               label="Cantidad de preguntas"
-              placeholder={formData.mode === 'SIMULACRO_EXAMEN' ? 'Por defecto 100' : 'Dejar vacío para todas las preguntas'}
+              placeholder={
+                formData.mode === 'SIMULACRO_EXAMEN'
+                  ? '100 (fijo)'
+                  : formData.mode === 'FAVORITOS'
+                  ? 'Dejar vacío para todos los favoritos'
+                  : 'Dejar vacío para todas las preguntas'
+              }
               value={formData.cantidad}
               onChange={handleChange}
               sx={{ mb: 3 }}
@@ -274,9 +281,11 @@ export const TestCreate = () => {
               helperText={
                 formData.mode === 'SIMULACRO_EXAMEN'
                   ? 'Simulacro intenta generar 100 preguntas repartidas entre los temas seleccionados'
-                  : `Máximo disponible: ${
-                      formData.temaIds.length > 0 ? totalPreguntasSeleccionadas : 'Todos los temas'
-                    } preguntas`
+                  : `${
+                      formData.temaIds.length > 0
+                        ? `Máximo disponible: ${totalPreguntasSeleccionadas} preguntas`
+                        : 'Dejar vacío cargará TODAS las preguntas disponibles'
+                    }`
               }
             />
 

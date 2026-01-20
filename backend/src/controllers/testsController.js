@@ -13,7 +13,7 @@ export const createTestAttempt = async (req, res, next) => {
       oposicionId, 
       temaId, 
       temaIds, 
-      cantidad = 10, 
+      cantidad,  // Sin default para permitir undefined/null
       dificultad,
       mode = 'ALEATORIO',
       filtroTipo,
