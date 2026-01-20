@@ -65,6 +65,10 @@ const TestTake = () => {
       const cached = localStorage.getItem(`test_${attemptId}`);
       if (cached) {
         const parsed = JSON.parse(cached);
+        // Asegurar que streakTarget esté presente
+        if (!parsed.streakTarget) {
+          parsed.streakTarget = 30;
+        }
         setTestData(parsed);
         setStreakCurrent(parsed.streakCurrent || 0);
         setStreakMax(parsed.streakMax || 0);

@@ -269,6 +269,9 @@ export const createTestAttempt = async (req, res, next) => {
         preguntas: preguntasParaTest,
         mode,
         tiempoInicio: attempt.tiempoInicio,
+        streakTarget: attempt.streakTarget,
+        streakCurrent: attempt.streakCurrent,
+        streakMax: attempt.streakMax,
       },
     });
   } catch (error) {
