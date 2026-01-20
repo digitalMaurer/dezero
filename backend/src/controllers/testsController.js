@@ -541,7 +541,18 @@ export const answerQuestionManicomio = async (req, res, next) => {
       throw new AppError('Esta pregunta ya fue respondida en este intento', 400);
     }
 
-    const esCorrecta = pregunta.respuestaCorrecta === respuestaUsuario;
+    // Recalcular el shuffle con el mismo seed para obtener respuestaCorrecta remapeada
+    const shuffled = shuffleQuestionOptions(pregunta);
+    const respuestaCorrectaRemapeada = shuffled.respuestaCorrecta;
+    const esCorrecta = respuestaCorrectaRemapeada === respuestaUsuario;
+
+    logger.debug('[MANICOMIO] Validando respuesta', {
+      preguntaId,
+      respuestaUsuario,
+      respuestaCorrectaOriginal: pregunta.respuestaCorrecta,
+      respuestaCorrectaRemapeada,
+      esCorrecta,
+    });
 
     let streakCurrent = esCorrecta ? attempt.streakCurrent + 1 : 0;
     let streakMax = Math.max(streakCurrent, attempt.streakMax);
@@ -718,19 +729,21 @@ export const getNextManicomioQuestion = async (req, res, next) => {
 
       const selected = validas[Math.floor(Math.random() * validas.length)];
       const shuffled = shuffleQuestionOptions(selected);
+      const merged = {
+        id: selected.id,
+        titulo: selected.titulo,
+        enunciado: selected.enunciado,
+        opcionA: shuffled.opcionA,
+        opcionB: shuffled.opcionB,
+        opcionC: shuffled.opcionC,
+        opcionD: shuffled.opcionD,
+        respuestaCorrecta: shuffled.respuestaCorrecta,
+        dificultad: selected.dificultad,
+      };
 
       return res.json({
         success: true,
-        data: {
-          id: shuffled.id,
-          titulo: shuffled.titulo,
-          enunciado: shuffled.enunciado,
-          opcionA: shuffled.opcionA,
-          opcionB: shuffled.opcionB,
-          opcionC: shuffled.opcionC,
-          opcionD: shuffled.opcionD,
-          dificultad: shuffled.dificultad,
-        },
+        data: merged,
       });
     }
 
@@ -747,19 +760,20 @@ export const getNextManicomioQuestion = async (req, res, next) => {
     }
 
     const shuffled = shuffleQuestionOptions(nextQuestion.pregunta);
+    const merged = {
+      id: nextQuestion.pregunta.id,
+      titulo: nextQuestion.pregunta.titulo,
+      enunciado: nextQuestion.pregunta.enunciado,
+      opcionA: shuffled.opcionA,
+      opcionB: shuffled.opcionB,
+      opcionC: shuffled.opcionC,
+      opcionD: shuffled.opcionD,
+      dificultad: nextQuestion.pregunta.dificultad,
+    };
 
     res.json({
       success: true,
-      data: {
-        id: shuffled.id,
-        titulo: shuffled.titulo,
-        enunciado: shuffled.enunciado,
-        opcionA: shuffled.opcionA,
-        opcionB: shuffled.opcionB,
-        opcionC: shuffled.opcionC,
-        opcionD: shuffled.opcionD,
-        dificultad: shuffled.dificultad,
-      },
+      data: merged,
     });
   } catch (error) {
     next(error);
@@ -837,10 +851,17 @@ export const getTestAttempt = async (req, res, next) => {
       ...attempt,
       test: {
         ...attempt.test,
-        questions: attempt.test.questions.map((q) => ({
-          ...q,
-          pregunta: shuffleQuestionOptions(q.pregunta),
-        })),
+        questions: attempt.test.questions.map((q) => {
+          const shuffled = shuffleQuestionOptions(q.pregunta);
+          // Conservar campos originales (titulo, enunciado, opciones) y solo mezclar opciones
+          return {
+            ...q,
+            pregunta: {
+              ...q.pregunta,
+              ...shuffled,
+            },
+          };
+        }),
       },
     };
 

@@ -19,25 +19,49 @@ export const shuffleQuestionOptions = (pregunta) => {
   }
 
   // Usar el ID de la pregunta como seed para mantener consistencia
-  // La misma pregunta siempre tendrá el mismo shuffle
   const seed = pregunta.id
     .split('')
     .reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
+  // Encontrar la opción correcta ANTES del shuffle
+  const correctOption = options.find(
+    (opt) => opt.letter === pregunta.respuestaCorrecta
+  );
+
+  if (!correctOption) {
+    console.error('[shuffleUtils] Error: respuestaCorrecta no encontrada', {
+      respuestaCorrecta: pregunta.respuestaCorrecta,
+      options: options.map((o) => o.letter),
+    });
+    return {
+      opcionA: pregunta.opcionA,
+      opcionB: pregunta.opcionB,
+      opcionC: pregunta.opcionC,
+      opcionD: pregunta.opcionD || null,
+      respuestaCorrecta: pregunta.respuestaCorrecta,
+    };
+  }
+
   // Algoritmo de Fisher-Yates con seed
   const shuffled = [...options];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = (seed + i * 7) % (i + 1); // Multiplico por 7 para más aleatoriedad con el seed
+    const j = (seed + i * 7) % (i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  // Mapear de vuelta a las posiciones originales
-  // shuffled[0] es ahora la primera opción que mostraremos (será A, B, C o D original)
-  // Encontrar dónde fue la respuesta correcta original
-  const originalCorrectIndex = options.findIndex(
-    (opt) => opt.letter === pregunta.respuestaCorrecta
+  // Encontrar en qué posición quedó la opción que era correcta
+  // Buscamos el objeto correctOption en el array shuffled
+  // El índice 0 = A, 1 = B, 2 = C, 3 = D
+  const newCorrectIndex = shuffled.findIndex(
+    (opt) => opt.letter === correctOption.letter
   );
-  const newCorrectLetter = shuffled[originalCorrectIndex].letter;
+  const newCorrectLetter = ['A', 'B', 'C', 'D'][newCorrectIndex];
+
+  console.debug('[shuffleUtils] Shuffle mapping', {
+    originalCorrect: correctOption.letter,
+    newCorrect: newCorrectLetter,
+    mapping: shuffled.map((opt) => opt.letter),
+  });
 
   return {
     opcionA: shuffled[0].text,
@@ -45,7 +69,6 @@ export const shuffleQuestionOptions = (pregunta) => {
     opcionC: shuffled[2].text,
     opcionD: shuffled[3]?.text || null,
     respuestaCorrecta: newCorrectLetter,
-    // Devolver también el mapeo para debugging (opcional)
     _shuffleMap: shuffled.map((opt) => opt.letter),
   };
 };
