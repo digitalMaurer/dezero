@@ -29,7 +29,9 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import FlagIcon from '@mui/icons-material/Flag';
-import { preguntasService, testsService } from '../services/apiServices';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
+import StarIcon from '@mui/icons-material/Star';
+import { preguntasService, testsService, favoritesService } from '../services/apiServices';
 
 const TestTake = () => {
   const { attemptId } = useParams();
@@ -53,6 +55,7 @@ const TestTake = () => {
   const [streakMax, setStreakMax] = useState(0);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [favorites, setFavorites] = useState({});
 
   const loadTest = async () => {
     setLoading(true);
@@ -242,6 +245,16 @@ const TestTake = () => {
       console.error(err);
     } finally {
       setReportSubmitting(false);
+    }
+  };
+
+  const handleToggleFavorite = async (preguntaId) => {
+    try {
+      const response = await favoritesService.toggle(preguntaId);
+      const isFavorite = response.data?.isFavorite;
+      setFavorites((prev) => ({ ...prev, [preguntaId]: isFavorite }));
+    } catch (err) {
+      console.error('Error al actualizar favorito:', err);
     }
   };
 
@@ -559,6 +572,15 @@ const TestTake = () => {
                     >
                       Reportar
                     </Button>
+                  </Tooltip>
+                  <Tooltip title={favorites[currentQuestion.id] ? 'Quitar de favoritos' : 'Marcar como favorita'}>
+                    <IconButton
+                      color={favorites[currentQuestion.id] ? 'primary' : 'default'}
+                      onClick={() => handleToggleFavorite(currentQuestion.id)}
+                      size="small"
+                    >
+                      {favorites[currentQuestion.id] ? <StarIcon /> : <StarBorderIcon />}
+                    </IconButton>
                   </Tooltip>
                 </Box>
               </Box>

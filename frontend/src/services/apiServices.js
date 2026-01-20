@@ -169,6 +169,23 @@ export const reportsService = {
   },
 };
 
+export const favoritesService = {
+  async toggle(preguntaId) {
+    const response = await apiClient.post(`/preguntas/${preguntaId}/favorite`);
+    return response.data;
+  },
+
+  async getAll(params) {
+    const response = await apiClient.get('/preguntas/favorites', { params });
+    return response.data;
+  },
+
+  async check(preguntaId) {
+    const response = await apiClient.get(`/preguntas/${preguntaId}/favorite`);
+    return response.data;
+  },
+};
+
 export const ankiService = {
   async updateQuestionGrade(preguntaId, grade) {
     const response = await apiClient.post(`/anki/preguntas/${preguntaId}/grade`, { grade });

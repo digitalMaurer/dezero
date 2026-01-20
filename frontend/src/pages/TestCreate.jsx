@@ -198,6 +198,7 @@ export const TestCreate = () => {
                 <MenuItem value="REPASO">Repaso</MenuItem>
                 <MenuItem value="ANKI">Anki (vencidas)</MenuItem>
                 <MenuItem value="SIMULACRO_EXAMEN">Simulacro examen oficial</MenuItem>
+                <MenuItem value="FAVORITOS">Solo favoritas ⭐</MenuItem>
               </Select>
             </FormControl>
 

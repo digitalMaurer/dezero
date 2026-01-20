@@ -148,6 +148,31 @@ export const createTestAttempt = async (req, res, next) => {
 
       // Mezclar globalmente
       preguntas = preguntas.sort(() => Math.random() - 0.5);
+    } else if (mode === 'FAVORITOS') {
+      // Modo favoritos: solo preguntas marcadas como favoritas
+      const favoritos = await prisma.favoritePregunta.findMany({
+        where: { userId },
+        include: {
+          pregunta: {
+            where: {
+              status: 'PUBLISHED',
+              ...(dificultad && { dificultad }),
+              ...(temasSeleccionados && temasSeleccionados.length > 0 && { temaId: { in: temasSeleccionados } }),
+            },
+          },
+        },
+      });
+
+      preguntas = favoritos
+        .map((f) => f.pregunta)
+        .filter((p) => p !== null); // Filtrar null si la pregunta no cumple los criterios
+
+      if (preguntas.length === 0) {
+        throw new AppError('No tienes preguntas favoritas con esos criterios', 404);
+      }
+
+      // Mezclar aleatoriamente
+      preguntas = preguntas.sort(() => Math.random() - 0.5);
     } else {
       // Modo aleatorio (default)
       const where = {

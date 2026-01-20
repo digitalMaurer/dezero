@@ -29,6 +29,7 @@ model User {
   // Relaciones
   testAttempts TestAttempt[]
   questionReports QuestionReport[]
+  favoritePreguntas FavoritePregunta[]
 
   @@map("users")
 }
@@ -99,6 +100,7 @@ model Pregunta {
   testQuestions TestQuestion[]
   questionReports QuestionReport[]
   statistics QuestionStatistic[]
+  favoritos FavoritePregunta[]
 
   @@map("preguntas")
 }
@@ -232,4 +234,19 @@ model ThemaStatistic {
   updatedAt DateTime @updatedAt
 
   @@map("thema_statistics")
+}
+
+model FavoritePregunta {
+  id        String   @id @default(cuid())
+  
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  preguntaId String
+  pregunta   Pregunta @relation(fields: [preguntaId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([userId, preguntaId])
+  @@map("favorite_preguntas")
 }

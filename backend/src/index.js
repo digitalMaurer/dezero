@@ -11,6 +11,7 @@ import testsRoutes from './routes/tests.js';
 import reportsRoutes from './routes/reports.js';
 import ankiRoutes from './routes/anki.js';
 import maintenanceRoutes from './routes/maintenance.js';
+import favoritesRoutes from './routes/favorites.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { logger } from './utils/logger.js';
 
@@ -44,6 +45,7 @@ app.use('/api/v1/tests', testsRoutes);
 app.use('/api/v1', reportsRoutes);
 app.use('/api/v1/anki', ankiRoutes);
 app.use('/api/v1/maintenance', maintenanceRoutes);
+app.use('/api/v1', favoritesRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
