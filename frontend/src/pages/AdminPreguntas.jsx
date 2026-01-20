@@ -82,6 +82,9 @@ export const AdminPreguntas = () => {
   const [editingPregunta, setEditingPregunta] = useState(null);
   const [openViewReportDialog, setOpenViewReportDialog] = useState(false);
   const [viewingReport, setViewingReport] = useState(null);
+  
+  // Temas para selector de edición
+  const [temasEdicion, setTemasEdicion] = useState([]);
 
   useEffect(() => {
     loadOposiciones();
@@ -439,9 +442,20 @@ export const AdminPreguntas = () => {
     }
   };
 
-  const handleEditOpen = (pregunta) => {
+  const handleEditOpen = async (pregunta) => {
     setEditingPregunta({ ...pregunta });
     setOpenEditDialog(true);
+    
+    // Cargar temas de la oposición actual
+    if (pregunta.tema?.oposicionId) {
+      try {
+        const response = await temasService.getAll(pregunta.tema.oposicionId);
+        const data = response.data?.temas || response.temas || [];
+        setTemasEdicion(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error cargando temas:', err);
+      }
+    }
   };
 
   const handleEditSave = async () => {
@@ -456,6 +470,7 @@ export const AdminPreguntas = () => {
         explicacion: editingPregunta.explicacion || '',
         tip: editingPregunta.tip || '',
         dificultad: editingPregunta.dificultad || 'MEDIUM',
+        temaId: editingPregunta.temaId, // Incluir tema
       };
       await preguntasService.update(editingPregunta.id, payload);
       setSuccess('Pregunta actualizada');
@@ -1000,6 +1015,25 @@ export const AdminPreguntas = () => {
                   setEditingPregunta({ ...editingPregunta, enunciado: e.target.value })
                 }
               />
+              
+              {/* Selector de Tema */}
+              <FormControl fullWidth>
+                <InputLabel>Tema</InputLabel>
+                <Select
+                  value={editingPregunta.temaId || editingPregunta.tema?.id || ''}
+                  onChange={(e) =>
+                    setEditingPregunta({ ...editingPregunta, temaId: e.target.value })
+                  }
+                  label="Tema"
+                >
+                  {temasEdicion.map((tema) => (
+                    <MenuItem key={tema.id} value={tema.id}>
+                      {tema.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
               <TextField
                 label="Opción A"
                 fullWidth
@@ -1226,11 +1260,25 @@ export const AdminPreguntas = () => {
           </Button>
           <Button 
             variant="contained" 
-            onClick={() => {
-              // Abrir el dialog de edición con la pregunta
-              setEditingPregunta({ ...viewingReport.pregunta });
-              setOpenEditDialog(true);
+            onClick={async () => {
+              // Cambiar a tab de gestionar preguntas y abrir edición
+              setTabValue(0);
+              const pregunta = { ...viewingReport.pregunta };
+              setEditingPregunta(pregunta);
               setOpenViewReportDialog(false);
+              
+              // Cargar temas de la oposición
+              if (pregunta.tema?.oposicionId) {
+                try {
+                  const response = await temasService.getAll(pregunta.tema.oposicionId);
+                  const data = response.data?.temas || response.temas || [];
+                  setTemasEdicion(Array.isArray(data) ? data : []);
+                } catch (err) {
+                  console.error('Error cargando temas:', err);
+                }
+              }
+              
+              setOpenEditDialog(true);
             }}
             startIcon={<EditIcon />}
           >
