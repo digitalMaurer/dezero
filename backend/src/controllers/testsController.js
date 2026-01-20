@@ -85,6 +85,69 @@ export const createTestAttempt = async (req, res, next) => {
         const stats = p.statistics;
         return !stats || stats.vecesRespondida === 0 || stats.porcentajeAcierto < 70;
       });
+    } else if (mode === 'SIMULACRO_EXAMEN') {
+      // Modo simulacro oficial: repartir equilibradamente entre temas seleccionados
+      if (!temasSeleccionados || temasSeleccionados.length === 0) {
+        throw new AppError('Selecciona al menos un tema para el simulacro', 400);
+      }
+
+      // Obtener preguntas por tema
+      const preguntasPorTema = await Promise.all(
+        temasSeleccionados.map(async (tId) => {
+          const where = {
+            status: 'PUBLISHED',
+            temaId: tId,
+          };
+          if (dificultad) where.dificultad = dificultad;
+          const items = await prisma.pregunta.findMany({ where });
+          // Mezclar por tema
+          return { temaId: tId, items: items.sort(() => Math.random() - 0.5) };
+        })
+      );
+
+      const totalDisponibles = preguntasPorTema.reduce((sum, t) => sum + t.items.length, 0);
+      let targetTotal = cantidad ? parseInt(cantidad) : 100; // Por defecto 100 para simulacro
+      if (Number.isNaN(targetTotal) || targetTotal <= 0) targetTotal = 100;
+      if (targetTotal > totalDisponibles) targetTotal = totalDisponibles;
+
+      // Cálculo de cupos equilibrados
+      const n = preguntasPorTema.length;
+      const base = Math.floor(targetTotal / n);
+      let resto = targetTotal % n;
+      const cupos = preguntasPorTema.map((t) => {
+        const max = t.items.length;
+        const cuota = Math.min(base + (resto > 0 ? 1 : 0), max);
+        if (resto > 0) resto -= 1;
+        return cuota;
+      });
+
+      // Redistribuir si alguna quedó por debajo y hay remanente
+      const totalAsignadoInicial = cupos.reduce((a, b) => a + b, 0);
+      let faltan = targetTotal - totalAsignadoInicial;
+      let idx = 0;
+      while (faltan > 0) {
+        const i = idx % cupos.length;
+        const capacidadExtra = preguntasPorTema[i].items.length - cupos[i];
+        if (capacidadExtra > 0) {
+          cupos[i] += 1;
+          faltan -= 1;
+        }
+        idx += 1;
+        // Evitar bucle infinito si no hay capacidad extra
+        if (idx > cupos.length * 2 && faltan > 0) break;
+      }
+
+      // Seleccionar preguntas según cupos
+      preguntas = [];
+      preguntasPorTema.forEach((t, i) => {
+        const take = cupos[i];
+        if (take > 0) {
+          preguntas.push(...t.items.slice(0, take));
+        }
+      });
+
+      // Mezclar globalmente
+      preguntas = preguntas.sort(() => Math.random() - 0.5);
     } else {
       // Modo aleatorio (default)
       const where = {

@@ -176,6 +176,31 @@ export const TestCreate = () => {
 
         <Paper elevation={3} sx={{ p: 4 }}>
           <form onSubmit={handleSubmit}>
+            {/* Modo de Test */}
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel>Modo de Test</InputLabel>
+              <Select
+                name="mode"
+                value={formData.mode}
+                label="Modo de Test"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    mode: value,
+                    // Para simulacro fijamos 100 preguntas por defecto
+                    cantidad: value === 'SIMULACRO_EXAMEN' ? '100' : prev.cantidad,
+                  }));
+                }}
+              >
+                <MenuItem value="ALEATORIO">Aleatorio</MenuItem>
+                <MenuItem value="FILTRADO">Filtrado</MenuItem>
+                <MenuItem value="REPASO">Repaso</MenuItem>
+                <MenuItem value="ANKI">Anki (vencidas)</MenuItem>
+                <MenuItem value="SIMULACRO_EXAMEN">Simulacro examen oficial</MenuItem>
+              </Select>
+            </FormControl>
+
             {/* Selección de Temas */}
             <Typography variant="h6" sx={{ mb: 2 }}>
               📚 Selecciona los temas
@@ -240,13 +265,18 @@ export const TestCreate = () => {
               type="text"
               name="cantidad"
               label="Cantidad de preguntas"
-              placeholder="Dejar vacío para todas las preguntas"
+              placeholder={formData.mode === 'SIMULACRO_EXAMEN' ? 'Por defecto 100' : 'Dejar vacío para todas las preguntas'}
               value={formData.cantidad}
               onChange={handleChange}
               sx={{ mb: 3 }}
-              helperText={`Máximo disponible: ${
-                formData.temaIds.length > 0 ? totalPreguntasSeleccionadas : 'Todos los temas'
-              } preguntas`}
+              disabled={formData.mode === 'SIMULACRO_EXAMEN'}
+              helperText={
+                formData.mode === 'SIMULACRO_EXAMEN'
+                  ? 'Simulacro intenta generar 100 preguntas repartidas entre los temas seleccionados'
+                  : `Máximo disponible: ${
+                      formData.temaIds.length > 0 ? totalPreguntasSeleccionadas : 'Todos los temas'
+                    } preguntas`
+              }
             />
 
             <FormControl fullWidth sx={{ mb: 3 }}>
