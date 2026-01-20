@@ -96,9 +96,13 @@ export const TestCreate = () => {
     try {
       const testData = {
         oposicionId,
-        cantidad: parseInt(formData.cantidad),
         mode: formData.mode,
       };
+
+      // Si cantidad tiene valor, enviarlo
+      if (formData.cantidad && formData.cantidad.trim() !== '') {
+        testData.cantidad = parseInt(formData.cantidad);
+      }
 
       // Si hay temas seleccionados, pasarlos como array
       if (formData.temaIds.length > 0) {
@@ -233,14 +237,13 @@ export const TestCreate = () => {
 
             <TextField
               fullWidth
-              type="number"
+              type="text"
               name="cantidad"
               label="Cantidad de preguntas"
+              placeholder="Dejar vacío para todas las preguntas"
               value={formData.cantidad}
               onChange={handleChange}
               sx={{ mb: 3 }}
-              inputProps={{ min: 1 }}
-              required
               helperText={`Máximo disponible: ${
                 formData.temaIds.length > 0 ? totalPreguntasSeleccionadas : 'Todos los temas'
               } preguntas`}
@@ -343,7 +346,7 @@ export const TestCreate = () => {
                 fullWidth
                 variant="contained"
                 type="submit"
-                disabled={submitting || formData.cantidad < 1}
+                disabled={submitting || formData.temaIds.length === 0}
               >
                 {submitting ? 'Creando...' : 'Iniciar Test'}
               </Button>

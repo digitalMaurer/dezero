@@ -110,8 +110,9 @@ export const createTestAttempt = async (req, res, next) => {
       throw new AppError('No hay preguntas disponibles con esos criterios', 404);
     }
 
-    // Limitar a la cantidad solicitada
-    const preguntasSeleccionadas = preguntas.slice(0, parseInt(cantidad));
+    // Limitar a la cantidad solicitada (si no se especifica cantidad, usar todas)
+    const cantidadParaUsar = cantidad ? parseInt(cantidad) : preguntas.length;
+    const preguntasSeleccionadas = preguntas.slice(0, cantidadParaUsar);
 
     // Crear el test
     const test = await prisma.test.create({
