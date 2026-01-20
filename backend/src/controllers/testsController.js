@@ -733,6 +733,8 @@ export const getNextManicomioQuestion = async (req, res, next) => {
         id: selected.id,
         titulo: selected.titulo,
         enunciado: selected.enunciado,
+        tip: selected.tip,
+        explicacion: selected.explicacion,
         opcionA: shuffled.opcionA,
         opcionB: shuffled.opcionB,
         opcionC: shuffled.opcionC,

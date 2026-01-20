@@ -14,6 +14,7 @@ import {
   Paper,
   Typography,
   Tooltip,
+  TextField,
 } from '@mui/material';
 import { useTestData } from './hooks/useTestData';
 import { useManicomioLogic } from './hooks/useManicomioLogic';
@@ -75,6 +76,9 @@ export const TestTake = () => {
   const [favorites, setFavorites] = useState({});
   const [pendingManicomioResult, setPendingManicomioResult] = useState(null);
   const [manicomioCorrectas, setManicomioCorrectas] = useState(0);
+  const [tipDraft, setTipDraft] = useState('');
+  const [savingTip, setSavingTip] = useState(false);
+  const [tipError, setTipError] = useState(null);
 
   // Hook específico para MANICOMIO
   const manicomioLogic = useManicomioLogic(
@@ -111,6 +115,14 @@ export const TestTake = () => {
     if (!attemptId) return;
     localStorage.setItem(`test_answers_${attemptId}`, JSON.stringify(respuestas));
   }, [attemptId, respuestas]);
+
+  // Sincronizar tipDraft cuando se muestra resultado MANICOMIO
+  useEffect(() => {
+    if (pendingManicomioResult?.question) {
+      setTipDraft(pendingManicomioResult.question.tip || '');
+      setTipError(null);
+    }
+  }, [pendingManicomioResult?.question]);
 
   const progress = useMemo(() => {
     if (!testData?.preguntas?.length) return 0;
@@ -212,6 +224,45 @@ export const TestTake = () => {
       console.error(err);
     } finally {
       setReportSubmitting(false);
+    }
+  };
+
+  const handleSaveTip = async () => {
+    if (!pendingManicomioResult?.question?.id) return;
+    setSavingTip(true);
+    setTipError(null);
+    try {
+      await preguntasService.update(pendingManicomioResult.question.id, { tip: tipDraft });
+
+      // Actualizar el estado local del modal
+      setPendingManicomioResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              question: {
+                ...prev.question,
+                tip: tipDraft,
+              },
+            }
+          : prev
+      );
+
+      // Actualizar testData para mantener consistencia
+      setTestData((prev) => {
+        if (!prev?.preguntas) return prev;
+        return {
+          ...prev,
+          preguntas: prev.preguntas.map((p) =>
+            p.id === pendingManicomioResult.question.id ? { ...p, tip: tipDraft } : p
+          ),
+        };
+      });
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Error al guardar el tip';
+      setTipError(msg);
+      console.error(err);
+    } finally {
+      setSavingTip(false);
     }
   };
 
@@ -571,6 +622,36 @@ export const TestTake = () => {
             <Typography variant="body1" sx={{ mb: 2 }}>
               {pendingManicomioResult?.question?.enunciado}
             </Typography>
+
+            {/* Tip editable */}
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+              Tip (puedes editarlo):
+            </Typography>
+            <TextField
+              fullWidth
+              multiline
+              minRows={2}
+              maxRows={4}
+              value={tipDraft}
+              onChange={(e) => setTipDraft(e.target.value)}
+              placeholder="Añade una pista o mnemotecnia para recordar"
+              sx={{ mb: 2 }}
+              error={!!tipError}
+              helperText={tipError || 'Guárdalo para reutilizar esta pista cuando reaparezca'}
+              disabled={savingTip}
+            />
+
+            {/* Explicación */}
+            {pendingManicomioResult?.question?.explicacion && (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
+                  Explicación:
+                </Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {pendingManicomioResult.question.explicacion}
+                </Typography>
+              </Box>
+            )}
           </DialogContent>
           <DialogActions sx={{ justifyContent: 'space-between' }}>
             <Button
@@ -585,6 +666,13 @@ export const TestTake = () => {
               Reportar esta pregunta
             </Button>
             <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="outlined"
+                onClick={handleSaveTip}
+                disabled={savingTip}
+              >
+                {savingTip ? 'Guardando...' : 'Guardar tip'}
+              </Button>
               <Button onClick={() => setPendingManicomioResult(null)}>Cerrar</Button>
               <Button variant="contained" onClick={handleManicomioContinue}>
                 Continuar
