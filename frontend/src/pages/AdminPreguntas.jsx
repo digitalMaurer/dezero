@@ -86,15 +86,27 @@ export const AdminPreguntas = () => {
   // Temas para selector de edición
   const [temasEdicion, setTemasEdicion] = useState([]);
 
+  // Paginación y filtros de preguntas
+  const [preguntasPage, setPreguntasPage] = useState(1);
+  const [preguntasLimit, setPreguntasLimit] = useState(50);
+  const [paginationInfo, setPaginationInfo] = useState(null);
+  const [filtroTemaPreguntas, setFiltroTemaPreguntas] = useState('');
+  const [temasParaFiltro, setTemasParaFiltro] = useState([]);
+
   useEffect(() => {
     loadOposiciones();
-    loadPreguntas();
     loadReports();
+    loadAllTemasForFilter();
   }, []);
+
+  useEffect(() => {
+    loadPreguntas();
+  }, [preguntasPage, preguntasLimit, filtroTemaPreguntas]);
 
   useEffect(() => {
     if (selectedOposicion) {
       loadTemas(selectedOposicion);
+      loadTemasParaFiltro(selectedOposicion);
     }
   }, [selectedOposicion]);
 
@@ -199,15 +211,70 @@ export const AdminPreguntas = () => {
     }
   };
 
+  const loadTemasParaFiltro = async (oposicionId) => {
+    try {
+      const response = await temasService.getAll(oposicionId);
+      const data = response.data?.temas || response.temas || [];
+      setTemasParaFiltro(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setTemasParaFiltro([]);
+    }
+  };
+
+  const loadAllTemasForFilter = async () => {
+    try {
+      const response = await oposicionesService.getAll();
+      const ops = response.data?.oposiciones || response.oposiciones || [];
+      let allTemas = [];
+      
+      // Cargar temas de cada oposición
+      for (const op of ops) {
+        try {
+          const temasResp = await temasService.getAll(op.id);
+          const temasData = temasResp.data?.temas || temasResp.temas || [];
+          allTemas = [...allTemas, ...temasData];
+        } catch (e) {
+          console.error(`Error cargando temas de oposición ${op.id}:`, e);
+        }
+      }
+      
+      // Eliminar duplicados por ID
+      const uniqueTemas = [];
+      const visto = new Set();
+      allTemas.forEach((t) => {
+        if (!visto.has(t.id)) {
+          uniqueTemas.push(t);
+          visto.add(t.id);
+        }
+      });
+      
+      setTemasParaFiltro(uniqueTemas);
+    } catch (err) {
+      console.error('Error cargando todos los temas:', err);
+      setTemasParaFiltro([]);
+    }
+  };
+
   const loadPreguntas = async () => {
     try {
-      const response = await preguntasService.getAll({ limit: 1000, page: 1 });
+      setLoading(true);
+      const params = { limit: preguntasLimit, page: preguntasPage };
+      if (filtroTemaPreguntas) {
+        params.temaId = filtroTemaPreguntas;
+      }
+      const response = await preguntasService.getAll(params);
       // Backend devuelve { success: true, data: { preguntas: [...], pagination: {...} } }
       const data = response.data?.preguntas || response.preguntas || [];
       setPreguntas(Array.isArray(data) ? data : []);
+      setPaginationInfo(response.data?.pagination || null);
+      setError(null);
     } catch (err) {
       console.error(err);
       setError('Error al cargar preguntas');
+      setPreguntas([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -841,8 +908,71 @@ export const AdminPreguntas = () => {
         {tabValue === 2 && (
           <Box>
             <Typography variant="h6" gutterBottom>
-              Total: {preguntas.length} preguntas
+              Total: {paginationInfo?.total || preguntas.length} preguntas
             </Typography>
+
+            {/* Filtros y paginación */}
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
+                <FormControl sx={{ minWidth: 220 }}>
+                  <InputLabel>Filtrar por tema</InputLabel>
+                  <Select
+                    value={filtroTemaPreguntas}
+                    label="Filtrar por tema"
+                    onChange={(e) => {
+                      setFiltroTemaPreguntas(e.target.value);
+                      setPreguntasPage(1);
+                    }}
+                  >
+                    <MenuItem value="">Todos los temas</MenuItem>
+                    {temasParaFiltro.map((t) => (
+                      <MenuItem key={t.id} value={t.id}>
+                        {t.nombre}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl sx={{ minWidth: 150 }}>
+                  <InputLabel>Por página</InputLabel>
+                  <Select
+                    value={preguntasLimit}
+                    label="Por página"
+                    onChange={(e) => {
+                      setPreguntasLimit(parseInt(e.target.value));
+                      setPreguntasPage(1);
+                    }}
+                  >
+                    <MenuItem value={10}>10</MenuItem>
+                    <MenuItem value={25}>25</MenuItem>
+                    <MenuItem value={50}>50</MenuItem>
+                    <MenuItem value={100}>100</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <Box sx={{ ml: 'auto', display: 'flex', gap: 1, alignItems: 'center' }}>
+                  {paginationInfo && (
+                    <Typography variant="body2" color="textSecondary">
+                      Página {paginationInfo.page} de {paginationInfo.totalPages}
+                    </Typography>
+                  )}
+                  <Button
+                    variant="outlined"
+                    disabled={!paginationInfo || paginationInfo.page <= 1}
+                    onClick={() => setPreguntasPage((p) => Math.max(1, p - 1))}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    disabled={!paginationInfo || paginationInfo.page >= paginationInfo.totalPages}
+                    onClick={() => setPreguntasPage((p) => p + 1)}
+                  >
+                    Siguiente
+                  </Button>
+                </Box>
+              </Box>
+            </Paper>
 
             {/* Herramientas de cambio masivo */}
             <Paper sx={{ p: 2, mb: 2 }}>
