@@ -48,7 +48,7 @@ export const QuestionMap = ({
               const isCurrent = index === currentQuestionIndex;
 
               return (
-                <Grid item xs={3} key={pregunta.id}>
+                <Grid item xs={3} key={`${pregunta.id || 'q'}-${pregunta.orden ?? index}`}>
                   <Tooltip title={`${isAnswered ? 'Respondida' : 'Sin responder'}`}>
                     <Button
                       fullWidth

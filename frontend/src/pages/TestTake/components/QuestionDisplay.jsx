@@ -18,6 +18,8 @@ export const QuestionDisplay = ({
     return <Typography>Cargando pregunta...</Typography>;
   }
 
+  const selectedValue = respuesta || '__none';
+
   return (
     <Box>
       <Box sx={{ mb: 3 }}>
@@ -31,7 +33,7 @@ export const QuestionDisplay = ({
 
       <FormControl component="fieldset">
         <RadioGroup
-          value={respuesta || ''}
+          value={selectedValue}
           onChange={(e) => onRespuestaChange(e.target.value)}
           disabled={disabled}
         >
@@ -44,11 +46,18 @@ export const QuestionDisplay = ({
                 key={opcion}
                 value={opcion}
                 control={<Radio />}
-                label={textoOpcion}
+                label={`${opcion}) ${textoOpcion}`}
                 sx={{ mb: 1 }}
               />
             );
           })}
+          <FormControlLabel
+            key="__none"
+            value="__none"
+            control={<Radio />}
+            label="En blanco"
+            sx={{ mt: 1 }}
+          />
         </RadioGroup>
       </FormControl>
     </Box>
