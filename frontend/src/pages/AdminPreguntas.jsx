@@ -243,6 +243,35 @@ export const AdminPreguntas = () => {
     }
   };
 
+  // Obtener pregunta completa (con todos los campos) por id
+  const fetchPreguntaDetalle = async (preguntaId) => {
+    if (!preguntaId) return null;
+    try {
+      const detail = await preguntasService.getById(preguntaId);
+      const preguntaDetallada = detail.data?.pregunta || detail.pregunta || null;
+      return preguntaDetallada;
+    } catch (err) {
+      console.error('Error obteniendo detalle de la pregunta:', err);
+      return null;
+    }
+  };
+
+  // Normaliza campos vacíos para evitar valores undefined en inputs controlados
+  const normalizePregunta = (pregunta) => {
+    if (!pregunta) return null;
+    return {
+      opcionA: '',
+      opcionB: '',
+      opcionC: '',
+      opcionD: '',
+      respuestaCorrecta: '',
+      explicacion: '',
+      tip: '',
+      dificultad: 'MEDIUM',
+      ...pregunta,
+    };
+  };
+
   const parseImportText = (text) => {
     const lines = text.trim().split('\n');
     const preguntas = [];
@@ -1287,7 +1316,10 @@ export const AdminPreguntas = () => {
             onClick={async () => {
               // Cambiar a tab de gestionar preguntas y abrir edición
               setTabValue(0);
-              const pregunta = { ...viewingReport.pregunta };
+              const preguntaBase = { ...viewingReport.pregunta };
+              // Obtener detalle completo para asegurar campos opcionA-D, etc.
+              const detalle = await fetchPreguntaDetalle(preguntaBase.id);
+              const pregunta = normalizePregunta(detalle || preguntaBase);
               setEditingPregunta(pregunta);
               setOpenViewReportDialog(false);
               await loadTemasForPregunta(pregunta);
