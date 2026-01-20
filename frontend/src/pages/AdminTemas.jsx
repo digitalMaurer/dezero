@@ -440,6 +440,9 @@ export const AdminTemas = () => {
             ) : (
               temas.map((tema) => {
                 const preguntas = preguntasPorTema[tema.id] || [];
+                const totalPreguntas = preguntas.length > 0
+                  ? preguntas.length
+                  : tema._count?.preguntas ?? 0;
                 const selected = selectedPreguntasPerTema[tema.id] || [];
                 const isExpanded = expandedTemas[tema.id];
 
@@ -472,9 +475,9 @@ export const AdminTemas = () => {
                       </Box>
 
                       <Chip
-                        label={`${preguntas.length} preguntas`}
+                        label={`${totalPreguntas} preguntas`}
                         size="small"
-                        color={preguntas.length > 0 ? 'primary' : 'default'}
+                        color={totalPreguntas > 0 ? 'primary' : 'default'}
                         sx={{ mr: 2 }}
                       />
 
