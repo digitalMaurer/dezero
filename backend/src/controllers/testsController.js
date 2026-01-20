@@ -31,8 +31,29 @@ export const createTestAttempt = async (req, res, next) => {
 
     let preguntas = [];
 
-    // Según el modo, obtener preguntas de diferente forma
-    if (mode === 'FILTRADO' && filtroTipo) {
+    // Modo Manicomio: cargar preguntas dinámicamente, no carga todas al inicio
+    if (mode === 'MANICOMIO') {
+      // Obtener una pregunta inicial para el test (el resto se cargan dinámicamente)
+      const where = {
+        status: 'PUBLISHED',
+      };
+
+      if (temasSeleccionados && temasSeleccionados.length > 0) {
+        where.temaId = { in: temasSeleccionados };
+      } else {
+        where.tema = { oposicionId };
+      }
+
+      if (dificultad) {
+        where.dificultad = dificultad;
+      }
+
+      const todosDisponibles = await prisma.pregunta.findMany({ where, take: 1 });
+      if (todosDisponibles.length === 0) {
+        throw new AppError('No hay preguntas disponibles con esos criterios', 404);
+      }
+      preguntas = todosDisponibles; // Solo una para iniciarlo
+    } else if (mode === 'FILTRADO' && filtroTipo) {
       // Modo filtrado: usar filtros avanzados
       preguntas = await getPreguntasConFiltro(temasSeleccionados, filtroTipo, dificultad, userId);
       preguntas = ordenarPreguntas(preguntas, filtroOrden);
@@ -567,6 +588,108 @@ export const answerQuestionManicomio = async (req, res, next) => {
         cantidadCorrectas,
         cantidadIncorrectas,
         puntaje: finished ? puntaje : undefined,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Obtener siguiente pregunta en modo MANICOMIO
+export const getNextManicomioQuestion = async (req, res, next) => {
+  try {
+    const { id } = req.params; // attemptId
+    const userId = req.user.id;
+
+    const attempt = await prisma.testAttempt.findFirst({
+      where: { id, userId },
+      include: {
+        test: {
+          include: {
+            questions: {
+              include: {
+                pregunta: true,
+              },
+            },
+          },
+        },
+        respuestas: true, // Para saber qué preguntas ya fueron respondidas
+      },
+    });
+
+    if (!attempt) {
+      throw new AppError('Intento de test no encontrado', 404);
+    }
+
+    if (attempt.mode !== 'MANICOMIO') {
+      throw new AppError('Este endpoint es solo para modo MANICOMIO', 400);
+    }
+
+    if (attempt.tiempoFin) {
+      throw new AppError('Este test ya ha finalizado', 400);
+    }
+
+    // Obtener IDs de preguntas ya respondidas
+    const respondidas = attempt.respuestas.map((r) => r.preguntaId);
+
+    // Obtener preguntas del test que NO hayan sido respondidas
+    const disponibles = attempt.test.questions.filter(
+      (q) => !respondidas.includes(q.preguntaId)
+    );
+
+    if (disponibles.length === 0) {
+      // Si no hay preguntas disponibles del test fijo, obtener nuevas del mismo tema/dificultad
+      // Esto permite preguntas ilimitadas en MANICOMIO
+      const tema = attempt.test.questions[0]?.pregunta?.tema;
+      const dificultad = attempt.test.questions[0]?.pregunta?.dificultad;
+
+      const nuevas = await prisma.pregunta.findMany({
+        where: {
+          status: 'PUBLISHED',
+          id: { notIn: respondidas }, // Excluir ya respondidas
+          ...(tema && { tema: { oposicionId: tema.oposicionId } }),
+          ...(dificultad && { dificultad }),
+        },
+        take: 10, // Cargar algunas más para elegir aleatoriamente
+      });
+
+      if (nuevas.length === 0) {
+        throw new AppError('No hay preguntas disponibles', 404);
+      }
+
+      const selected = nuevas[Math.floor(Math.random() * nuevas.length)];
+      const shuffled = shuffleQuestionOptions(selected);
+
+      return res.json({
+        success: true,
+        data: {
+          id: shuffled.id,
+          titulo: shuffled.titulo,
+          enunciado: shuffled.enunciado,
+          opcionA: shuffled.opcionA,
+          opcionB: shuffled.opcionB,
+          opcionC: shuffled.opcionC,
+          opcionD: shuffled.opcionD,
+          dificultad: shuffled.dificultad,
+        },
+      });
+    }
+
+    // Seleccionar una pregunta aleatoria de las disponibles
+    const nextQuestion = disponibles[Math.floor(Math.random() * disponibles.length)];
+    const shuffled = shuffleQuestionOptions(nextQuestion.pregunta);
+
+    res.json({
+      success: true,
+      data: {
+        id: shuffled.id,
+        titulo: shuffled.titulo,
+        enunciado: shuffled.enunciado,
+        opcionA: shuffled.opcionA,
+        opcionB: shuffled.opcionB,
+        opcionC: shuffled.opcionC,
+        opcionD: shuffled.opcionD,
+        dificultad: shuffled.dificultad,
       },
     });
   } catch (error) {

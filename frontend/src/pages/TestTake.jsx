@@ -320,14 +320,36 @@ const TestTake = () => {
         return;
       }
 
-      // Buscar la próxima pregunta sin responder
-      const nextUnansweredIndex = testData.preguntas.findIndex(
-        (q, idx) => idx > currentQuestionIndex && !respuestas[q.id]
-      );
+      // En modo MANICOMIO, cargar la siguiente pregunta dinámicamente
+      if (testData.mode === 'MANICOMIO') {
+        try {
+          const nextQuestion = await testsService.getNextManicomioQuestion(attemptId);
+          const nextQuestionData = nextQuestion.data || nextQuestion;
+          
+          // Agregar la nueva pregunta al array
+          setTestData((prev) => ({
+            ...prev,
+            preguntas: [...prev.preguntas, nextQuestionData],
+          }));
+          
+          // Moverse a la nueva pregunta
+          setCurrentQuestionIndex(testData.preguntas.length);
+          setRespuestas((prev) => ({ ...prev, [nextQuestionData.id]: '' }));
+        } catch (err) {
+          setError(err.response?.data?.message || 'Error al cargar la siguiente pregunta');
+          console.error(err);
+        }
+      } else {
+        // Buscar la próxima pregunta sin responder (para otros modos)
+        const nextUnansweredIndex = testData.preguntas.findIndex(
+          (q, idx) => idx > currentQuestionIndex && !respuestas[q.id]
+        );
 
-      if (nextUnansweredIndex !== -1) {
-        setCurrentQuestionIndex(nextUnansweredIndex);
+        if (nextUnansweredIndex !== -1) {
+          setCurrentQuestionIndex(nextUnansweredIndex);
+        }
       }
+      
       setFeedback(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Error al enviar la respuesta');

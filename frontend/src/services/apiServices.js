@@ -119,6 +119,11 @@ export const testsService = {
     return response.data;
   },
 
+  async getNextManicomioQuestion(attemptId) {
+    const response = await apiClient.get(`/tests/attempts/${attemptId}/next-question`);
+    return response.data;
+  },
+
   async getAttempt(id) {
     const response = await apiClient.get(`/tests/attempts/${id}`);
     return response.data;

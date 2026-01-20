@@ -3,6 +3,7 @@ import {
   createTestAttempt,
   submitTestAttempt,
   answerQuestionManicomio,
+  getNextManicomioQuestion,
   getTestAttempt,
   getUserTestHistory,
   getUserStats,
@@ -15,6 +16,7 @@ const router = express.Router();
 router.post('/attempts', authMiddleware, createTestAttempt);
 router.post('/attempts/submit', authMiddleware, submitTestAttempt);
 router.post('/attempts/:id/answer', authMiddleware, answerQuestionManicomio);
+router.get('/attempts/:id/next-question', authMiddleware, getNextManicomioQuestion);
 router.get('/attempts/:id', authMiddleware, getTestAttempt);
 router.delete('/attempts/:id', authMiddleware, deleteTestAttempt);
 router.get('/history', authMiddleware, getUserTestHistory);
