@@ -226,7 +226,7 @@ export const AdminPreguntas = () => {
             preguntaDetallada?.tema?.oposicionId || preguntaDetallada?.tema?.oposicion?.id;
           // Asegurar temaId en el estado de edición
           if (preguntaDetallada?.temaId) {
-            setEditingPregunta((prev) => ({ ...prev, temaId: preguntaDetallada.temaId }));
+            setEditingPregunta((prev) => ({ ...(prev || {}), temaId: preguntaDetallada.temaId }));
           }
         } catch (err) {
           console.error('Error obteniendo detalle de la pregunta:', err);
