@@ -26,6 +26,25 @@ import { ReviewDialog } from './components/ReviewDialog';
 import { QuestionActions, ReportDialog } from './components/QuestionActions';
 import { preguntasService, testsService, favoritesService } from '../../services/apiServices';
 
+/**
+ * MEJORAS FUTURAS:
+ * 1. Extraer MANICOMIO modal workflow a componente separado <ManicomioModal />
+ * 2. Crear hook useAnswerValidation() para centralizar lógica de validación
+ * 3. Optimizar re-renders con useMemo/useCallback (actualmente re-renderiza demasiado)
+ * 4. Implementar virtualización para QuestionMap si hay muchas preguntas
+ * 5. Agregar contador tiempo real sincronizado con backend
+ * 6. Implementar auto-save cada N segundos en localStorage
+ * 7. Agregar keyboard shortcuts (Enter para responder, Flechas para navegar)
+ * 8. Mejorar UX de recuperación de pregunta bloqueada (más silencioso, sin alert)
+ * 9. Agregar análisis en tiempo real (% acierto, velocidad respuesta)
+ * 10. Precargar siguiente pregunta mientras usuario responde actual
+ * 11. Implementar lazy loading de imágenes si hay en preguntas
+ * 12. Agregar modo oscuro/light toggle
+ * 13. Tests E2E para flujo completo MANICOMIO
+ * 14. Mejorar manejo de errores con retry automático
+ * 15. Agregar logging de eventos para analytics
+ */
+
 export const TestTake = () => {
   const { attemptId } = useParams();
   const navigate = useNavigate();

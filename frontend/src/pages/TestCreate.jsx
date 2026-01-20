@@ -21,6 +21,20 @@ import {
 } from '@mui/material';
 import { temasService, testsService, oposicionesService } from '../services/apiServices';
 
+/**
+ * MEJORAS FUTURAS:
+ * 1. Extraer renderStep1, renderStep2, renderStep3, renderStep4 a componentes separados en carpeta /components
+ * 2. Crear hook personalizado useTestCreateForm() para la lógica del formulario
+ * 3. Agregar validación de temas mínimos según el modo (ej: SIMULACRO necesita al menos 5 temas)
+ * 4. Cachear oposiciones y temas en context/zustand para evitar re-fetches
+ * 5. Agregar historial de tests recientes para quickstart
+ * 6. Persistir estado del formulario en localStorage para recuperar en case de recarga
+ * 7. Añadir tooltip/help icons explicando cada modo
+ * 8. Animaciones de transición entre pasos
+ * 9. Progress bar visual del progreso en los pasos
+ * 10. Tests unitarios para lógica de selección de temas y modos
+ */
+
 export const TestCreate = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
