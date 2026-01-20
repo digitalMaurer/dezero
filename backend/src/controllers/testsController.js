@@ -480,12 +480,22 @@ export const answerQuestionManicomio = async (req, res, next) => {
       throw new AppError('Este endpoint es solo para modo MANICOMIO', 400);
     }
 
-    const question = attempt.test.questions.find(
-      (q) => q.pregunta.id === preguntaId
-    );
+    // En MANICOMIO, obtener la pregunta directamente de BD (no está en test.questions inicial)
+    const pregunta = await prisma.pregunta.findUnique({
+      where: { id: preguntaId },
+    });
 
-    if (!question) {
-      throw new AppError('La pregunta no pertenece a este test', 400);
+    if (!pregunta) {
+      throw new AppError('La pregunta no existe', 404);
+    }
+
+    // Verificar que la pregunta pertenezca a al menos un tema del test (seguridad)
+    const temasDest = attempt.test.questions.map((q) => q.pregunta.temaId);
+    if (!temasDest.includes(pregunta.temaId)) {
+      // Si está vacío es porque se cargó dinámicamente, permitir
+      if (temasDest.length > 0) {
+        throw new AppError('La pregunta no pertenece a este test', 400);
+      }
     }
 
     const existingResponse = await prisma.attemptResponse.findUnique({
@@ -501,7 +511,7 @@ export const answerQuestionManicomio = async (req, res, next) => {
       throw new AppError('Esta pregunta ya fue respondida en este intento', 400);
     }
 
-    const esCorrecta = question.pregunta.respuestaCorrecta === respuestaUsuario;
+    const esCorrecta = pregunta.respuestaCorrecta === respuestaUsuario;
 
     let streakCurrent = esCorrecta ? attempt.streakCurrent + 1 : 0;
     let streakMax = Math.max(streakCurrent, attempt.streakMax);

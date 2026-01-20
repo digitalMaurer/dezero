@@ -327,14 +327,12 @@ const TestTake = () => {
           const nextQuestionData = nextQuestion.data || nextQuestion;
           
           // Agregar la nueva pregunta al array
-          setTestData((prev) => ({
-            ...prev,
-            preguntas: [...prev.preguntas, nextQuestionData],
-          }));
-          
-          // Moverse a la nueva pregunta
-          setCurrentQuestionIndex(testData.preguntas.length);
-          setRespuestas((prev) => ({ ...prev, [nextQuestionData.id]: '' }));
+          setTestData((prev) => {
+            const newPreguntas = [...prev.preguntas, nextQuestionData];
+            setCurrentQuestionIndex(newPreguntas.length - 1);
+            setRespuestas((prevResp) => ({ ...prevResp, [nextQuestionData.id]: '' }));
+            return { ...prev, preguntas: newPreguntas };
+          });
         } catch (err) {
           setError(err.response?.data?.message || 'Error al cargar la siguiente pregunta');
           console.error(err);
