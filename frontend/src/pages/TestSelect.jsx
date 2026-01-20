@@ -234,7 +234,7 @@ export const TestSelect = () => {
                     🌀 Manicomio
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    Gana con 30 aciertos seguidos. Sin blancos.
+                    Preguntas seguidas sin listar. Personaliza tu objetivo de aciertos.
                   </Typography>
                 </CardContent>
               </Card>
@@ -265,7 +265,7 @@ export const TestSelect = () => {
             )}
             {mode === 'MANICOMIO' && (
               <Alert severity="error">
-                <strong>Modo Manicomio:</strong> Debes acertar 30 seguidas. Sin dejar en blanco ni mapa de preguntas. Feedback inmediato.
+                <strong>Modo Manicomio:</strong> Preguntas seguidas sin listar. Sin dejar en blanco. Personaliza tu objetivo de aciertos seguidos. Feedback inmediato.
               </Alert>
             )}
           </Box>

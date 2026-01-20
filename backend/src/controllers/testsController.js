@@ -559,7 +559,7 @@ export const answerQuestionManicomio = async (req, res, next) => {
         esCorrecta,
         streakCurrent,
         streakMax,
-        remaining: Math.max(30 - streakCurrent, 0),
+        remaining: Math.max(attempt.streakTarget - streakCurrent, 0),
         finished,
         cantidadCorrectas,
         cantidadIncorrectas,

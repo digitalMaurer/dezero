@@ -525,7 +525,7 @@ const TestTake = () => {
               {isManicomio && feedback && (
                 <Alert severity={feedback.esCorrecta ? 'success' : 'error'} sx={{ mt: 2 }}>
                   {feedback.esCorrecta ? '✅ Respuesta correcta' : '❌ Respuesta incorrecta, la racha se reinicia'}
-                  {typeof feedback.remaining === 'number' && <strong> · Te faltan {feedback.remaining} aciertos para llegar a 30.</strong>}
+                  {typeof feedback.remaining === 'number' && <strong> · Te faltan {feedback.remaining} aciertos para llegar a {testData?.streakTarget || 30}.</strong>}
                 </Alert>
               )}
 
