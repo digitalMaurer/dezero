@@ -78,7 +78,8 @@ model Pregunta {
   opcionC   String
   opcionD   String?
   respuestaCorrecta String // A, B, C, D
-  explicacion String?
+  tip           String?
+  explicacion   String?
   dificultad String @default("MEDIUM") // EASY, MEDIUM, HARD
   status    String @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
   imageUrl  String?
