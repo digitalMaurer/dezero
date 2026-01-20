@@ -608,7 +608,11 @@ export const getNextManicomioQuestion = async (req, res, next) => {
           include: {
             questions: {
               include: {
-                pregunta: true,
+                pregunta: {
+                  include: {
+                    tema: true, // Incluir tema para acceder a oposicionId
+                  },
+                },
               },
             },
           },
@@ -640,14 +644,22 @@ export const getNextManicomioQuestion = async (req, res, next) => {
     if (disponibles.length === 0) {
       // Si no hay preguntas disponibles del test fijo, obtener nuevas del mismo tema/dificultad
       // Esto permite preguntas ilimitadas en MANICOMIO
-      const tema = attempt.test.questions[0]?.pregunta?.tema;
-      const dificultad = attempt.test.questions[0]?.pregunta?.dificultad;
+      const primeraPregunta = attempt.test.questions[0]?.pregunta;
+      
+      if (!primeraPregunta) {
+        throw new AppError('No hay preguntas disponibles para continuar', 400);
+      }
+
+      const dificultad = primeraPregunta.dificultad;
+      const temaIds = attempt.test.questions
+        .map((q) => q.pregunta?.temaId)
+        .filter(Boolean);
 
       const nuevas = await prisma.pregunta.findMany({
         where: {
           status: 'PUBLISHED',
           id: { notIn: respondidas }, // Excluir ya respondidas
-          ...(tema && { tema: { oposicionId: tema.oposicionId } }),
+          ...(temaIds.length > 0 && { temaId: { in: temaIds } }),
           ...(dificultad && { dificultad }),
         },
         take: 10, // Cargar algunas más para elegir aleatoriamente
@@ -677,6 +689,11 @@ export const getNextManicomioQuestion = async (req, res, next) => {
 
     // Seleccionar una pregunta aleatoria de las disponibles
     const nextQuestion = disponibles[Math.floor(Math.random() * disponibles.length)];
+    
+    if (!nextQuestion || !nextQuestion.pregunta) {
+      throw new AppError('Pregunta no válida', 400);
+    }
+
     const shuffled = shuffleQuestionOptions(nextQuestion.pregunta);
 
     res.json({
