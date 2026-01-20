@@ -7,8 +7,9 @@ export const useTestData = (attemptId) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const isPreguntaValid = (p) =>
-    p && p.id && p.titulo && p.enunciado && p.opcionA && p.opcionB && p.opcionC && p.respuestaCorrecta;
+  // Validar que la pregunta tenga los campos mínimos para mostrarse
+  // NO validar respuestaCorrecta porque no se envía por seguridad en createTestAttempt
+  const isPreguntaValid = (p) => p && p.id && p.titulo; // validar solo mínimos para no descartar preguntas
 
   useEffect(() => {
     const loadTest = async () => {
@@ -42,25 +43,78 @@ export const useTestData = (attemptId) => {
         const response = await testsService.getAttempt(attemptId);
         const attempt = response.data?.attempt || response.attempt || response;
 
-        if (!attempt || !attempt.test?.questions) {
+        console.debug('[useTestData] response completo:', response);
+        console.debug('[useTestData] attempt:', attempt);
+        console.debug('[useTestData] attempt.test:', attempt?.test);
+        console.debug('[useTestData] attempt.test.questions:', attempt?.test?.questions);
+
+        if (!attempt) {
           throw new Error('Intento inválido');
         }
 
-        const preguntas = attempt.test.questions
-          .sort((a, b) => a.orden - b.orden)
-          .map((q) => ({
-            id: q.pregunta.id,
-            titulo: q.pregunta.titulo,
-            enunciado: q.pregunta.enunciado,
-            opcionA: q.pregunta.opcionA,
-            opcionB: q.pregunta.opcionB,
-            opcionC: q.pregunta.opcionC,
-            opcionD: q.pregunta.opcionD,
-            dificultad: q.pregunta.dificultad,
-            orden: q.orden,
-            respuestaCorrecta: q.pregunta.respuestaCorrecta,
-          }))
-          .filter(isPreguntaValid);
+        const mapPreguntas = (arr) => {
+          const rawMapped = (arr || [])
+            .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+            .map((q) => {
+              const base = q.pregunta || q; // soportar ambas formas: {pregunta, orden} o pregunta plana
+              const mapped = {
+                id: base?.id,
+                titulo: base?.titulo,
+                enunciado: base?.enunciado,
+                opcionA: base?.opcionA,
+                opcionB: base?.opcionB,
+                opcionC: base?.opcionC,
+                opcionD: base?.opcionD,
+                dificultad: base?.dificultad,
+                orden: q.orden || base?.orden || 0,
+                respuestaCorrecta: base?.respuestaCorrecta,
+              };
+              console.debug('[useTestData] mapped:', mapped);
+              console.debug('[useTestData] isPreguntaValid:', isPreguntaValid(mapped));
+              return mapped;
+            });
+
+          const valid = rawMapped.filter(isPreguntaValid);
+
+          // Fallback: si no hay válidas pero sí hay mapeadas, usar las mapeadas rellenando strings vacíos
+          if (valid.length === 0 && rawMapped.length > 0) {
+            console.warn('[useTestData] Ninguna pregunta pasó la validación. Usando fallback y rellenando campos vacíos.');
+            return rawMapped.map((p) => ({
+              id: p.id,
+              titulo: p.titulo || 'Pregunta',
+              enunciado: p.enunciado || 'Enunciado no disponible',
+              opcionA: p.opcionA || 'Opción A',
+              opcionB: p.opcionB || 'Opción B',
+              opcionC: p.opcionC || 'Opción C',
+              opcionD: p.opcionD || null,
+              dificultad: p.dificultad || 'media',
+              orden: p.orden || 0,
+              respuestaCorrecta: p.respuestaCorrecta,
+            }));
+          }
+
+          return valid;
+        };
+
+        let preguntas = [];
+
+        // Forma estándar al consultar getAttempt
+        if (Array.isArray(attempt.test?.questions)) {
+          preguntas = mapPreguntas(attempt.test.questions);
+          console.debug('[useTestData] preguntas (test.questions):', preguntas);
+        }
+
+        // Forma cuando viene directo en data.preguntas (createTestAttempt inicial)
+        if (!preguntas.length && Array.isArray(attempt.preguntas)) {
+          preguntas = mapPreguntas(attempt.preguntas);
+          console.debug('[useTestData] preguntas (attempt.preguntas):', preguntas);
+        }
+
+        // Forma defensiva por si la respuesta viniera anidada en data.data.preguntas
+        if (!preguntas.length && Array.isArray(response?.data?.preguntas)) {
+          preguntas = mapPreguntas(response.data.preguntas);
+          console.debug('[useTestData] preguntas (response.data.preguntas):', preguntas);
+        }
 
         if (preguntas.length === 0) {
           throw new Error('No hay preguntas válidas en el intento');
