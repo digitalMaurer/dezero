@@ -237,6 +237,41 @@ export const TestTake = () => {
 
     if (!result) return;
 
+    // Si la pregunta estaba bloqueada (ya respondida), auto-recuperar
+    if (result.blocked) {
+      console.warn('[MANICOMIO] Pregunta bloqueada, cargando siguiente automáticamente');
+      alert('⚠️ Esta pregunta ya fue registrada. Cargando siguiente pregunta...');
+      
+      // Limpiar respuesta del estado
+      setRespuestas((prev) => {
+        const updated = { ...prev };
+        delete updated[currentQuestion.id];
+        return updated;
+      });
+      
+      // Cargar siguiente pregunta directamente del backend
+      try {
+        const response = await testsService.getNextManicomioQuestion(attemptId);
+        const nextQuestion = response.data;
+        
+        // Agregar la nueva pregunta al testData
+        setTestData((prev) => ({
+          ...prev,
+          preguntas: [...(prev.preguntas || []), nextQuestion],
+        }));
+        
+        // Avanzar al índice de la nueva pregunta
+        setCurrentQuestionIndex((prev) => prev + 1);
+        
+        console.debug('[MANICOMIO] Nueva pregunta cargada después de bloqueo:', nextQuestion.id);
+      } catch (err) {
+        console.error('[MANICOMIO] Error al cargar siguiente pregunta:', err);
+        alert('Error al cargar la siguiente pregunta. Por favor, recarga la página.');
+      }
+      
+      return;
+    }
+
     if (result.esCorrecta) {
       setManicomioCorrectas((prev) => prev + 1);
     }

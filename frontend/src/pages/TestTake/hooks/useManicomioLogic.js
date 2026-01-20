@@ -100,6 +100,18 @@ export const useManicomioLogic = (attemptId, testData, respuestas, currentQuesti
           data: err.response?.data,
           fullError: err,
         });
+        
+        // Si la pregunta ya fue respondida, permitir recuperación
+        if (errMsg.includes('ya fue respondida')) {
+          console.warn('[MANICOMIO] Pregunta bloqueada detectada, activando recuperación');
+          return {
+            blocked: true,
+            finished: false,
+            answered: false,
+            message: 'Esta pregunta ya está registrada. Cargando siguiente pregunta...'
+          };
+        }
+        
         return false;
       } finally {
         setLoading(false);
