@@ -159,6 +159,7 @@ model TestAttempt {
   mode String @default("ALEATORIO")
   streakCurrent Int @default(0)
   streakMax Int @default(0)
+  streakTarget Int @default(30) // Objetivo de aciertos seguidos para terminar (especialmente en Manicomio)
   
   tiempoInicio DateTime
   tiempoFin    DateTime?

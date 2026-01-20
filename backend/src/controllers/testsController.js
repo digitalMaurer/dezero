@@ -17,7 +17,8 @@ export const createTestAttempt = async (req, res, next) => {
       dificultad,
       mode = 'ALEATORIO',
       filtroTipo,
-      filtroOrden = 'ALEATORIO'
+      filtroOrden = 'ALEATORIO',
+      streakTarget = 30  // Para modo Manicomio
     } = req.body;
     const userId = req.user.id;
 
@@ -235,6 +236,7 @@ export const createTestAttempt = async (req, res, next) => {
         mode,
         streakCurrent: 0,
         streakMax: 0,
+        streakTarget: mode === 'MANICOMIO' ? streakTarget : 30, // Usar streakTarget en Manicomio
         tiempoInicio: new Date(),
       },
     });
@@ -522,7 +524,7 @@ export const answerQuestionManicomio = async (req, res, next) => {
         });
       }
 
-      if (streakCurrent >= 30) {
+      if (streakCurrent >= attempt.streakTarget) {
         finished = true;
         const totalRespondidas = cantidadCorrectas + cantidadIncorrectas;
         puntaje = Math.round((cantidadCorrectas / totalRespondidas) * 10);

@@ -105,6 +105,7 @@ const TestTake = () => {
         mode: attempt.mode || 'ALEATORIO',
         streakCurrent: attempt.streakCurrent || 0,
         streakMax: attempt.streakMax || 0,
+        streakTarget: attempt.streakTarget || 30,
       };
 
       setTestData(normalized);
@@ -406,7 +407,7 @@ const TestTake = () => {
             </Typography>
             {isManicomio && (
               <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
-                MODO MANICOMIO · Necesitas 30 aciertos seguidos sin dejar en blanco.
+                MODO MANICOMIO · Necesitas {testData?.streakTarget || 30} aciertos seguidos sin dejar en blanco.
               </Typography>
             )}
           </Box>
@@ -663,7 +664,7 @@ const TestTake = () => {
                   <Stack direction="row" spacing={2} alignItems="center">
                     <Chip label={`Actual: ${streakCurrent}`} color="primary" />
                     <Chip label={`Máxima: ${streakMax}`} color="secondary" />
-                    <Chip label={`Faltan: ${Math.max(30 - streakCurrent, 0)}`} color="success" />
+                    <Chip label={`Faltan: ${Math.max((testData?.streakTarget || 30) - streakCurrent, 0)}`} color="success" />
                   </Stack>
                 </CardContent>
               </Card>

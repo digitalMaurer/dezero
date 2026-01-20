@@ -37,6 +37,7 @@ export const TestCreate = () => {
     cantidad: '', // Dejar vacío por defecto para usar todas
     dificultad: '',
     mode: mode,
+    streakTarget: 30, // Objetivo de aciertos seguidos para Manicomio
     // Filtros avanzados
     filtroTipo: '', // MAS_ERRONEAS, ULTIMA_ERRONEA, NUNCA_RESPONDIDAS, etc.
     filtroOrden: 'ALEATORIO', // ALEATORIO, DIFICULTAD_ASC, DIFICULTAD_DESC
@@ -119,6 +120,11 @@ export const TestCreate = () => {
           testData.filtroTipo = formData.filtroTipo;
         }
         testData.filtroOrden = formData.filtroOrden;
+      }
+
+      // Agregar streakTarget si está en modo MANICOMIO
+      if (formData.mode === 'MANICOMIO') {
+        testData.streakTarget = parseInt(formData.streakTarget);
       }
 
       const response = await testsService.createAttempt(testData);
@@ -305,6 +311,25 @@ export const TestCreate = () => {
                 <MenuItem value="HARD">Difícil</MenuItem>
               </Select>
             </FormControl>
+
+            {/* Streak Target solo para modo MANICOMIO */}
+            {formData.mode === 'MANICOMIO' && (
+              <FormControl fullWidth sx={{ mb: 3 }}>
+                <InputLabel>🎯 Aciertos seguidos para terminar</InputLabel>
+                <Select
+                  name="streakTarget"
+                  value={formData.streakTarget}
+                  onChange={handleChange}
+                  label="🎯 Aciertos seguidos para terminar"
+                >
+                  <MenuItem value={10}>10 aciertos</MenuItem>
+                  <MenuItem value={20}>20 aciertos</MenuItem>
+                  <MenuItem value={30}>30 aciertos (por defecto)</MenuItem>
+                  <MenuItem value={50}>50 aciertos</MenuItem>
+                  <MenuItem value={100}>100 aciertos (Legión)</MenuItem>
+                </Select>
+              </FormControl>
+            )}
 
             {/* Filtros avanzados solo en modo FILTRADO */}
             {mode === 'FILTRADO' && (
