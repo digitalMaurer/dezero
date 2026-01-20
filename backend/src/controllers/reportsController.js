@@ -38,7 +38,24 @@ export const createQuestionReport = async (req, res, next) => {
         estado: 'PENDIENTE',
       },
       include: {
-        pregunta: true,
+        pregunta: {
+          include: {
+            tema: {
+              select: {
+                id: true,
+                oposicionId: true,
+                nombre: true,
+                oposicion: {
+                  select: {
+                    id: true,
+                    nombre: true,
+                    codigo: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         user: {
           select: {
             id: true,
@@ -85,11 +102,15 @@ export const getQuestionReports = async (req, res, next) => {
               enunciado: true,
               titulo: true,
               dificultad: true,
+              temaId: true,
               tema: {
                 select: {
+                  id: true,
+                  oposicionId: true,
                   nombre: true,
                   oposicion: {
                     select: {
+                      id: true,
                       nombre: true,
                       codigo: true,
                     },

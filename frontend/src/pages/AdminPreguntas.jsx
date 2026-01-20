@@ -211,6 +211,38 @@ export const AdminPreguntas = () => {
     }
   };
 
+  // Cargar temas para la pregunta a editar
+  const loadTemasForPregunta = async (pregunta) => {
+    try {
+      // Intentar obtener el oposicionId desde la pregunta cargada
+      let oposicionId = pregunta?.tema?.oposicionId || pregunta?.tema?.oposicion?.id;
+
+      // Si no viene la oposición, obtener la pregunta completa
+      if (!oposicionId && pregunta?.id) {
+        try {
+          const detail = await preguntasService.getById(pregunta.id);
+          const preguntaDetallada = detail.data?.pregunta || detail.pregunta;
+          oposicionId =
+            preguntaDetallada?.tema?.oposicionId || preguntaDetallada?.tema?.oposicion?.id;
+          // Asegurar temaId en el estado de edición
+          if (preguntaDetallada?.temaId) {
+            setEditingPregunta((prev) => ({ ...prev, temaId: preguntaDetallada.temaId }));
+          }
+        } catch (err) {
+          console.error('Error obteniendo detalle de la pregunta:', err);
+        }
+      }
+
+      if (oposicionId) {
+        const response = await temasService.getAll(oposicionId);
+        const data = response.data?.temas || response.temas || [];
+        setTemasEdicion(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error('Error cargando temas:', err);
+    }
+  };
+
   const parseImportText = (text) => {
     const lines = text.trim().split('\n');
     const preguntas = [];
@@ -445,17 +477,9 @@ export const AdminPreguntas = () => {
   const handleEditOpen = async (pregunta) => {
     setEditingPregunta({ ...pregunta });
     setOpenEditDialog(true);
-    
+
     // Cargar temas de la oposición actual
-    if (pregunta.tema?.oposicionId) {
-      try {
-        const response = await temasService.getAll(pregunta.tema.oposicionId);
-        const data = response.data?.temas || response.temas || [];
-        setTemasEdicion(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Error cargando temas:', err);
-      }
-    }
+    await loadTemasForPregunta(pregunta);
   };
 
   const handleEditSave = async () => {
@@ -1266,18 +1290,7 @@ export const AdminPreguntas = () => {
               const pregunta = { ...viewingReport.pregunta };
               setEditingPregunta(pregunta);
               setOpenViewReportDialog(false);
-              
-              // Cargar temas de la oposición
-              if (pregunta.tema?.oposicionId) {
-                try {
-                  const response = await temasService.getAll(pregunta.tema.oposicionId);
-                  const data = response.data?.temas || response.temas || [];
-                  setTemasEdicion(Array.isArray(data) ? data : []);
-                } catch (err) {
-                  console.error('Error cargando temas:', err);
-                }
-              }
-              
+              await loadTemasForPregunta(pregunta);
               setOpenEditDialog(true);
             }}
             startIcon={<EditIcon />}
