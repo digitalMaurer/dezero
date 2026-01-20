@@ -1,0 +1,98 @@
+import { useState, useEffect } from 'react';
+import { testsService } from '../../../services/apiServices';
+
+export const useTestData = (attemptId) => {
+  const [testData, setTestData] = useState(null);
+  const [respuestas, setRespuestas] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadTest = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Intentar cargar del localStorage primero
+        const cached = localStorage.getItem(`test_${attemptId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          // Asegurar que streakTarget exista
+          if (!parsed.streakTarget) {
+            parsed.streakTarget = 30;
+          }
+          setTestData(parsed);
+          
+          const savedAnswers = localStorage.getItem(`test_answers_${attemptId}`);
+          if (savedAnswers) {
+            setRespuestas(JSON.parse(savedAnswers));
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Si no está en cache, cargar del servidor
+        const response = await testsService.getAttempt(attemptId);
+        const attempt = response.data?.attempt || response.attempt || response;
+
+        if (!attempt || !attempt.test?.questions) {
+          throw new Error('Intento inválido');
+        }
+
+        const preguntas = attempt.test.questions
+          .sort((a, b) => a.orden - b.orden)
+          .map((q) => ({
+            id: q.pregunta.id,
+            titulo: q.pregunta.titulo,
+            enunciado: q.pregunta.enunciado,
+            opcionA: q.pregunta.opcionA,
+            opcionB: q.pregunta.opcionB,
+            opcionC: q.pregunta.opcionC,
+            opcionD: q.pregunta.opcionD,
+            dificultad: q.pregunta.dificultad,
+            orden: q.orden,
+          }));
+
+        const normalized = {
+          attemptId: attempt.id,
+          testId: attempt.testId,
+          preguntas,
+          tiempoInicio: attempt.tiempoInicio,
+          mode: attempt.mode || 'ALEATORIO',
+          streakCurrent: attempt.streakCurrent || 0,
+          streakMax: attempt.streakMax || 0,
+          streakTarget: attempt.streakTarget || 30,
+        };
+
+        setTestData(normalized);
+
+        if (attempt.respuestas?.length) {
+          const restored = attempt.respuestas.reduce((acc, r) => {
+            acc[r.preguntaId] = r.respuestaUsuario || '';
+            return acc;
+          }, {});
+          setRespuestas(restored);
+        }
+      } catch (err) {
+        setError(err.message || 'Error al cargar el test');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (attemptId) {
+      loadTest();
+    }
+  }, [attemptId]);
+
+  return {
+    testData,
+    setTestData,
+    respuestas,
+    setRespuestas,
+    loading,
+    error,
+    setError,
+  };
+};
