@@ -8,12 +8,17 @@ export const useManicomioLogic = (attemptId, testData, respuestas, currentQuesti
   const [streakCurrent, setStreakCurrent] = useState(testData?.streakCurrent || 0);
   const [streakMax, setStreakMax] = useState(testData?.streakMax || 0);
 
+  // Evitar leer propiedades si testData aún es null
+  const mode = testData?.mode || 'ALEATORIO';
+
   const handleManicomioAnswer = useCallback(
     async (preguntaId, respuestaUsuario, setTestData, setCurrentQuestionIndex, setRespuestas) => {
-      if (!respuestaUsuario) {
+      if (!preguntaId || !respuestaUsuario) {
         setError('Debes seleccionar una opción');
         return false;
       }
+
+      console.debug('[MANICOMIO] payload', { preguntaId, respuestaUsuario });
 
       setError(null);
       setLoading(true);
@@ -24,7 +29,9 @@ export const useManicomioLogic = (attemptId, testData, respuestas, currentQuesti
           respuestaUsuario,
         });
 
-        const data = response.data || response;
+        // Back devuelve { success, data: { ... } }
+        const dataWrapper = response?.data ?? response;
+        const data = dataWrapper?.data ?? dataWrapper;
         setStreakCurrent(data.streakCurrent || 0);
         setStreakMax(data.streakMax || 0);
         setFeedback({
@@ -37,14 +44,15 @@ export const useManicomioLogic = (attemptId, testData, respuestas, currentQuesti
         }
 
         // En MANICOMIO, cargar siguiente pregunta dinámicamente
-        if (testData.mode === 'MANICOMIO') {
+        if (mode === 'MANICOMIO') {
           try {
             const nextQuestion = await testsService.getNextManicomioQuestion(attemptId);
             const nextQuestionData = nextQuestion.data || nextQuestion;
 
             // Actualizar state correctamente
             setTestData((prev) => {
-              const newPreguntas = [...prev.preguntas, nextQuestionData];
+              if (!prev) return prev;
+              const newPreguntas = [...(prev.preguntas || []), nextQuestionData];
               return { ...prev, preguntas: newPreguntas };
             });
 
@@ -68,7 +76,7 @@ export const useManicomioLogic = (attemptId, testData, respuestas, currentQuesti
         setLoading(false);
       }
     },
-    [attemptId, testData.mode]
+    [attemptId, mode]
   );
 
   return {

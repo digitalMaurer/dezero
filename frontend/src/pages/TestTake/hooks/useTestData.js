@@ -7,6 +7,9 @@ export const useTestData = (attemptId) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const isPreguntaValid = (p) =>
+    p && p.id && p.titulo && p.enunciado && p.opcionA && p.opcionB && p.opcionC && p.respuestaCorrecta;
+
   useEffect(() => {
     const loadTest = async () => {
       setLoading(true);
@@ -21,17 +24,21 @@ export const useTestData = (attemptId) => {
           if (!parsed.streakTarget) {
             parsed.streakTarget = 30;
           }
-          setTestData(parsed);
-          
-          const savedAnswers = localStorage.getItem(`test_answers_${attemptId}`);
-          if (savedAnswers) {
-            setRespuestas(JSON.parse(savedAnswers));
+
+          // Validar cache; si está incompleta, ignorar y forzar fetch
+          const cacheIsValid = Array.isArray(parsed.preguntas) && parsed.preguntas.every(isPreguntaValid);
+          if (cacheIsValid) {
+            setTestData(parsed);
+            const savedAnswers = localStorage.getItem(`test_answers_${attemptId}`);
+            if (savedAnswers) {
+              setRespuestas(JSON.parse(savedAnswers));
+            }
+            setLoading(false);
+            return;
           }
-          setLoading(false);
-          return;
         }
 
-        // Si no está en cache, cargar del servidor
+        // Si no está en cache (o es inválido), cargar del servidor
         const response = await testsService.getAttempt(attemptId);
         const attempt = response.data?.attempt || response.attempt || response;
 
@@ -51,7 +58,13 @@ export const useTestData = (attemptId) => {
             opcionD: q.pregunta.opcionD,
             dificultad: q.pregunta.dificultad,
             orden: q.orden,
-          }));
+            respuestaCorrecta: q.pregunta.respuestaCorrecta,
+          }))
+          .filter(isPreguntaValid);
+
+        if (preguntas.length === 0) {
+          throw new Error('No hay preguntas válidas en el intento');
+        }
 
         const normalized = {
           attemptId: attempt.id,
@@ -73,6 +86,9 @@ export const useTestData = (attemptId) => {
           }, {});
           setRespuestas(restored);
         }
+
+        // Cachear solo si son válidas
+        localStorage.setItem(`test_${attemptId}`, JSON.stringify(normalized));
       } catch (err) {
         setError(err.message || 'Error al cargar el test');
         console.error(err);

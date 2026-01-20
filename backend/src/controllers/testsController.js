@@ -48,7 +48,7 @@ export const createTestAttempt = async (req, res, next) => {
 
     // Modo Manicomio: cargar preguntas dinámicamente, no carga todas al inicio
     if (mode === 'MANICOMIO') {
-      // Obtener una pregunta inicial para el test (el resto se cargan dinámicamente)
+      // Obtener un pool y elegir una válida al azar (evita siempre la misma primera pregunta)
       const where = {
         status: 'PUBLISHED',
       };
@@ -63,11 +63,16 @@ export const createTestAttempt = async (req, res, next) => {
         where.dificultad = dificultad;
       }
 
-      const todosDisponibles = await prisma.pregunta.findMany({ where, take: 1 });
-      if (todosDisponibles.length === 0) {
+      // Traer un pool razonable y filtrar válidas
+      const pool = await prisma.pregunta.findMany({ where, take: 50 });
+      const validas = pool.filter(isPreguntaValid);
+
+      if (validas.length === 0) {
         throw new AppError('No hay preguntas disponibles con esos criterios', 404);
       }
-      preguntas = todosDisponibles; // Solo una para iniciarlo
+
+      const selected = validas[Math.floor(Math.random() * validas.length)];
+      preguntas = [selected]; // Solo una para iniciarlo
     } else if (mode === 'FILTRADO' && filtroTipo) {
       // Modo filtrado: usar filtros avanzados
       preguntas = await getPreguntasConFiltro(temasSeleccionados, filtroTipo, dificultad, userId);
@@ -256,6 +261,9 @@ export const createTestAttempt = async (req, res, next) => {
           include: {
             pregunta: true,
           },
+          orderBy: {
+            orden: 'asc',
+          },
         },
       },
     });
@@ -278,18 +286,18 @@ export const createTestAttempt = async (req, res, next) => {
     });
 
     // Devolver preguntas sin respuestas (con opciones mezcladas)
+    // IMPORTANTE: NO incluir respuestaCorrecta por seguridad
     const preguntasParaTest = test.questions.map((q) => {
       const shuffled = shuffleQuestionOptions(q.pregunta);
       return {
-        id: q.pregunta.id,
-        titulo: q.pregunta.titulo,
-        enunciado: q.pregunta.enunciado,
+        id: shuffled.id,
+        titulo: shuffled.titulo,
+        enunciado: shuffled.enunciado,
         opcionA: shuffled.opcionA,
         opcionB: shuffled.opcionB,
         opcionC: shuffled.opcionC,
         opcionD: shuffled.opcionD,
-        respuestaCorrecta: shuffled.respuestaCorrecta,
-        dificultad: q.pregunta.dificultad,
+        dificultad: shuffled.dificultad,
         orden: q.orden,
       };
     });
@@ -463,6 +471,8 @@ export const answerQuestionManicomio = async (req, res, next) => {
     const { id } = req.params; // attemptId
     const { preguntaId, respuestaUsuario } = req.body;
     const userId = req.user.id;
+
+    logger.debug('MANICOMIO answer payload', { attemptId: id, preguntaId, respuestaUsuario });
 
     if (!preguntaId || !respuestaUsuario) {
       throw new AppError('preguntaId y respuestaUsuario son requeridos', 400);
