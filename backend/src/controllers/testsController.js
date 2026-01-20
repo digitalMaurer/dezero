@@ -48,7 +48,7 @@ export const createTestAttempt = async (req, res, next) => {
 
     // Modo Manicomio: cargar preguntas dinámicamente, no carga todas al inicio
     if (mode === 'MANICOMIO') {
-      // Obtener un pool y elegir una válida al azar (evita siempre la misma primera pregunta)
+      // MANICOMIO: cargar TODAS las preguntas del criterio (no dinámicamente)
       const where = {
         status: 'PUBLISHED',
       };
@@ -63,16 +63,16 @@ export const createTestAttempt = async (req, res, next) => {
         where.dificultad = dificultad;
       }
 
-      // Traer un pool razonable y filtrar válidas
-      const pool = await prisma.pregunta.findMany({ where, take: 50 });
-      const validas = pool.filter(isPreguntaValid);
+      // Traer TODAS las preguntas disponibles (no solo 50)
+      preguntas = await prisma.pregunta.findMany({ where });
+      preguntas = preguntas.filter(isPreguntaValid);
 
-      if (validas.length === 0) {
+      if (preguntas.length === 0) {
         throw new AppError('No hay preguntas disponibles con esos criterios', 404);
       }
 
-      const selected = validas[Math.floor(Math.random() * validas.length)];
-      preguntas = [selected]; // Solo una para iniciarlo
+      // Mezclar para no siempre empezar por la misma
+      preguntas = preguntas.sort(() => Math.random() - 0.5);
     } else if (mode === 'FILTRADO' && filtroTipo) {
       // Modo filtrado: usar filtros avanzados
       preguntas = await getPreguntasConFiltro(temasSeleccionados, filtroTipo, dificultad, userId);
@@ -290,9 +290,9 @@ export const createTestAttempt = async (req, res, next) => {
     const preguntasParaTest = test.questions.map((q) => {
       const shuffled = shuffleQuestionOptions(q.pregunta);
       return {
-        id: shuffled.id,
-        titulo: shuffled.titulo,
-        enunciado: shuffled.enunciado,
+        id: q.pregunta.id,
+        titulo: q.pregunta.titulo,
+        enunciado: q.pregunta.enunciado,
         opcionA: shuffled.opcionA,
         opcionB: shuffled.opcionB,
         opcionC: shuffled.opcionC,
@@ -505,27 +505,20 @@ export const answerQuestionManicomio = async (req, res, next) => {
       throw new AppError('Este endpoint es solo para modo MANICOMIO', 400);
     }
 
-    // En MANICOMIO, obtener la pregunta directamente de BD (no está en test.questions inicial)
-    const pregunta = await prisma.pregunta.findUnique({
-      where: { id: preguntaId },
-    });
+    // En MANICOMIO, la pregunta debe estar en test.questions (se cargan todas al inicio)
+    const testQuestion = attempt.test.questions.find(
+      (q) => q.pregunta.id === preguntaId
+    );
 
-    if (!pregunta) {
-      throw new AppError('La pregunta no existe', 404);
+    if (!testQuestion) {
+      throw new AppError('La pregunta no pertenece a este test', 400);
     }
+
+    const pregunta = testQuestion.pregunta;
 
     // Validar que la pregunta esté completa
     if (!isPreguntaValid(pregunta)) {
       throw new AppError('La pregunta está incompleta', 400);
-    }
-
-    // Verificar que la pregunta pertenezca a al menos un tema del test (seguridad)
-    const temasDest = attempt.test.questions.map((q) => q.pregunta.temaId);
-    if (!temasDest.includes(pregunta.temaId)) {
-      // Si está vacío es porque se cargó dinámicamente, permitir
-      if (temasDest.length > 0) {
-        throw new AppError('La pregunta no pertenece a este test', 400);
-      }
     }
 
     const existingResponse = await prisma.attemptResponse.findUnique({
@@ -537,7 +530,8 @@ export const answerQuestionManicomio = async (req, res, next) => {
       },
     });
 
-    if (existingResponse) {
+    // Permitimos reintentar solo si la respuesta previa fue incorrecta; si ya fue correcta, bloquear
+    if (existingResponse?.esCorrecta) {
       throw new AppError('Esta pregunta ya fue respondida en este intento', 400);
     }
 
@@ -554,22 +548,41 @@ export const answerQuestionManicomio = async (req, res, next) => {
       esCorrecta,
     });
 
+    // Si había una respuesta incorrecta previa, restarla antes de sumar la nueva
+    const baseCorrectas = attempt.cantidadCorrectas;
+    const baseIncorrectas = existingResponse ? Math.max(0, attempt.cantidadIncorrectas - 1) : attempt.cantidadIncorrectas;
+
     let streakCurrent = esCorrecta ? attempt.streakCurrent + 1 : 0;
     let streakMax = Math.max(streakCurrent, attempt.streakMax);
-    let cantidadCorrectas = attempt.cantidadCorrectas + (esCorrecta ? 1 : 0);
-    let cantidadIncorrectas = attempt.cantidadIncorrectas + (esCorrecta ? 0 : 1);
+    let cantidadCorrectas = baseCorrectas + (esCorrecta ? 1 : 0);
+    let cantidadIncorrectas = baseIncorrectas + (esCorrecta ? 0 : 1);
     let finished = false;
     let puntaje = attempt.puntaje;
 
     await prisma.$transaction(async (tx) => {
-      await tx.attemptResponse.create({
-        data: {
-          attemptId: id,
-          preguntaId,
-          respuestaUsuario,
-          esCorrecta,
-        },
-      });
+      if (existingResponse) {
+        await tx.attemptResponse.update({
+          where: {
+            attemptId_preguntaId: {
+              attemptId: id,
+              preguntaId,
+            },
+          },
+          data: {
+            respuestaUsuario,
+            esCorrecta,
+          },
+        });
+      } else {
+        await tx.attemptResponse.create({
+          data: {
+            attemptId: id,
+            preguntaId,
+            respuestaUsuario,
+            esCorrecta,
+          },
+        });
+      }
 
       // Actualizar estadísticas de pregunta
       const stats = await tx.questionStatistic.findUnique({
@@ -676,104 +689,74 @@ export const getNextManicomioQuestion = async (req, res, next) => {
       throw new AppError('Intento de test no encontrado', 404);
     }
 
-    if (attempt.mode !== 'MANICOMIO') {
-      throw new AppError('Este endpoint es solo para modo MANICOMIO', 400);
+    // Separar preguntas por estado
+    const respondidas_correctas = attempt.respuestas
+      .filter((resp) => resp.esCorrecta)
+      .map((resp) => resp.preguntaId);
+
+    const respondidas_incorrectas = attempt.respuestas
+      .filter((resp) => !resp.esCorrecta)
+      .map((resp) => resp.preguntaId);
+
+    logger.info(`[MANICOMIO] Total: ${attempt.test.questions.length} preguntas, Correctas: ${respondidas_correctas.length}, Incorrectas: ${respondidas_incorrectas.length}`);
+
+    // Usar TODAS las preguntas del test inicial (no ir a BD)
+    const todasLasPreguntas = attempt.test.questions
+      .map((q) => q.pregunta)
+      .filter(isPreguntaValid);
+
+    if (todasLasPreguntas.length === 0) {
+      throw new AppError('No hay preguntas válidas en el test', 404);
     }
 
-    if (attempt.tiempoFin) {
-      throw new AppError('Este test ya ha finalizado', 400);
-    }
-
-    // Obtener IDs de preguntas ya respondidas
-    const respondidas = attempt.respuestas.map((r) => r.preguntaId);
-
-    // Obtener preguntas del test que NO hayan sido respondidas
-    const disponibles = attempt.test.questions.filter(
-      (q) => !respondidas.includes(q.preguntaId)
+    // No respondidas = todas las del test - todas las respondidas (correctas o incorrectas)
+    const no_respondidas = todasLasPreguntas.filter(
+      (p) => !respondidas_correctas.includes(p.id) && !respondidas_incorrectas.includes(p.id)
     );
 
+    // Incorrectas (para reintentar)
+    const incorrectas = todasLasPreguntas.filter(
+      (p) => respondidas_incorrectas.includes(p.id)
+    );
+
+    // Pool: no respondidas + incorrectas + 10% de correctas (solo si hay >= 10 correctas)
+    let disponibles = [...no_respondidas, ...incorrectas];
+
+    if (respondidas_correctas.length >= 10) {
+      const correctas = todasLasPreguntas.filter((p) => respondidas_correctas.includes(p.id));
+      const cantidad_repaso = Math.max(1, Math.ceil(respondidas_correctas.length * 0.1));
+      const correctas_repaso = correctas
+        .sort(() => Math.random() - 0.5)
+        .slice(0, cantidad_repaso);
+      disponibles = [...disponibles, ...correctas_repaso];
+    }
+
+    logger.info(`[MANICOMIO] Disponibles: ${disponibles.length} (no respondidas: ${no_respondidas.length}, incorrectas: ${incorrectas.length}, repaso: ${respondidas_correctas.length >= 10 ? Math.ceil(respondidas_correctas.length * 0.1) : 0})`);
+
     if (disponibles.length === 0) {
-      // Si no hay preguntas disponibles del test fijo, obtener nuevas del mismo tema/dificultad
-      // Esto permite preguntas ilimitadas en MANICOMIO
-      const primeraPregunta = attempt.test.questions[0]?.pregunta;
-      
-      if (!primeraPregunta) {
-        throw new AppError('No hay preguntas disponibles para continuar', 400);
-      }
-
-      const dificultad = primeraPregunta.dificultad;
-      const temaIds = attempt.test.questions
-        .map((q) => q.pregunta?.temaId)
-        .filter(Boolean);
-
-      const nuevas = await prisma.pregunta.findMany({
-        where: {
-          status: 'PUBLISHED',
-          id: { notIn: respondidas }, // Excluir ya respondidas
-          ...(temaIds.length > 0 && { temaId: { in: temaIds } }),
-          ...(dificultad && { dificultad }),
-        },
-        take: 20, // Cargar más para tener buffer de válidas
-      });
-
-      if (nuevas.length === 0) {
-        throw new AppError('No hay preguntas disponibles', 404);
-      }
-
-      // Filtrar solo preguntas válidas (con todos los campos requeridos)
-      const validas = nuevas.filter(isPreguntaValid);
-
-      if (validas.length === 0) {
-        throw new AppError('No hay preguntas válidas disponibles', 404);
-      }
-
-      const selected = validas[Math.floor(Math.random() * validas.length)];
-      const shuffled = shuffleQuestionOptions(selected);
-      const merged = {
-        id: selected.id,
-        titulo: selected.titulo,
-        enunciado: selected.enunciado,
-        tip: selected.tip,
-        explicacion: selected.explicacion,
-        opcionA: shuffled.opcionA,
-        opcionB: shuffled.opcionB,
-        opcionC: shuffled.opcionC,
-        opcionD: shuffled.opcionD,
-        respuestaCorrecta: shuffled.respuestaCorrecta,
-        dificultad: selected.dificultad,
-      };
-
-      return res.json({
-        success: true,
-        data: merged,
-      });
+      throw new AppError('No hay más preguntas disponibles', 404);
     }
 
-    // Seleccionar una pregunta aleatoria de las disponibles
-    const nextQuestion = disponibles[Math.floor(Math.random() * disponibles.length)];
+    const randomIndex = Math.floor(Math.random() * disponibles.length);
+    const selected = disponibles[randomIndex];
     
-    if (!nextQuestion || !nextQuestion.pregunta) {
-      throw new AppError('Pregunta no válida', 400);
-    }
-
-    // Validar que la pregunta tenga todos los campos requeridos
-    if (!isPreguntaValid(nextQuestion.pregunta)) {
-      throw new AppError('La pregunta seleccionada está incompleta', 400);
-    }
-
-    const shuffled = shuffleQuestionOptions(nextQuestion.pregunta);
+    logger.info(`[MANICOMIO] Seleccionada: índice ${randomIndex} de ${disponibles.length}, ID: ${selected.id}`);
+    const shuffled = shuffleQuestionOptions(selected);
     const merged = {
-      id: nextQuestion.pregunta.id,
-      titulo: nextQuestion.pregunta.titulo,
-      enunciado: nextQuestion.pregunta.enunciado,
+      id: selected.id,
+      titulo: selected.titulo,
+      enunciado: selected.enunciado,
+      tip: selected.tip,
+      explicacion: selected.explicacion,
       opcionA: shuffled.opcionA,
       opcionB: shuffled.opcionB,
       opcionC: shuffled.opcionC,
       opcionD: shuffled.opcionD,
-      dificultad: nextQuestion.pregunta.dificultad,
+      respuestaCorrecta: shuffled.respuestaCorrecta,
+      dificultad: selected.dificultad,
     };
 
-    res.json({
+    return res.json({
       success: true,
       data: merged,
     });
