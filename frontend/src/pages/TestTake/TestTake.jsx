@@ -54,6 +54,8 @@ export const TestTake = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [favorites, setFavorites] = useState({});
+  const [pendingManicomioResult, setPendingManicomioResult] = useState(null);
+  const [manicomioCorrectas, setManicomioCorrectas] = useState(0);
 
   // Hook específico para MANICOMIO
   const manicomioLogic = useManicomioLogic(
@@ -62,6 +64,11 @@ export const TestTake = () => {
     respuestas,
     currentQuestionIndex
   );
+
+  // Definir variables derivadas ANTES de los useEffects
+  const isManicomio = testData?.mode === 'MANICOMIO';
+  const currentQuestion = testData?.preguntas?.[currentQuestionIndex];
+  const currentRespuesta = respuestas[currentQuestion?.id] || '';
 
   // Timer para elapsed time
   useEffect(() => {
@@ -72,15 +79,19 @@ export const TestTake = () => {
     return () => clearInterval(intervalId);
   }, [isPaused, testData]);
 
+  // Cuando el índice cambia (siguiente pregunta), resetear la respuesta actual
+  useEffect(() => {
+    if (isManicomio) {
+      console.debug('[MANICOMIO] Índice cambió a:', currentQuestionIndex);
+      console.debug('[MANICOMIO] Pregunta actual:', currentQuestion?.id);
+    }
+  }, [currentQuestionIndex, isManicomio, currentQuestion?.id]);
+
   // Guardar respuestas en localStorage
   useEffect(() => {
     if (!attemptId) return;
     localStorage.setItem(`test_answers_${attemptId}`, JSON.stringify(respuestas));
   }, [attemptId, respuestas]);
-
-  const isManicomio = testData?.mode === 'MANICOMIO';
-  const currentQuestion = testData?.preguntas?.[currentQuestionIndex];
-  const currentRespuesta = respuestas[currentQuestion?.id] || '';
 
   const progress = useMemo(() => {
     if (!testData?.preguntas?.length) return 0;
@@ -95,6 +106,14 @@ export const TestTake = () => {
   const tiempoRestante = tiempoEstimado - elapsedTime;
 
   const handleAnswerChange = (newRespuesta) => {
+    if (newRespuesta === '__none') {
+      setRespuestas((prev) => {
+        const { [currentQuestion.id]: _, ...rest } = prev;
+        return rest;
+      });
+      return;
+    }
+
     setRespuestas((prev) => ({
       ...prev,
       [currentQuestion.id]: newRespuesta,
@@ -213,17 +232,77 @@ export const TestTake = () => {
     console.debug('[MANICOMIO] currentRespuesta', currentRespuesta);
     const result = await manicomioLogic.handleManicomioAnswer(
       currentQuestion.id,
-      currentRespuesta,
-      setTestData,
-      setCurrentQuestionIndex,
-      setRespuestas
+      currentRespuesta
     );
 
-    if (result?.finished) {
+    if (!result) return;
+
+    if (result.esCorrecta) {
+      setManicomioCorrectas((prev) => prev + 1);
+    }
+
+    if (result.finished) {
       localStorage.removeItem(`test_${attemptId}`);
       localStorage.removeItem(`test_answers_${attemptId}`);
       navigate(`/test/results/${attemptId}`);
+      return;
     }
+
+    setPendingManicomioResult({
+      ...result,
+      question: currentQuestion,
+      respuesta: currentRespuesta,
+    });
+  };
+
+  const handleManicomioContinue = () => {
+    if (!pendingManicomioResult?.nextQuestion) {
+      console.warn('[MANICOMIO] No hay siguiente pregunta disponible');
+      setPendingManicomioResult(null);
+      return;
+    }
+
+    const nextQuestionData = pendingManicomioResult.nextQuestion;
+    const previousPreguntaId = currentQuestion?.id;
+    
+    console.debug('[MANICOMIO] ===== handleManicomioContinue INICIO =====');
+    console.debug('[MANICOMIO] Pregunta anterior:', previousPreguntaId);
+    console.debug('[MANICOMIO] Siguiente pregunta:', nextQuestionData.id);
+    console.debug('[MANICOMIO] Respuestas ANTES de limpiar:', { ...respuestas });
+
+    // 1. Cerrar modal
+    setPendingManicomioResult(null);
+
+    // 2. Actualizar testData agregando la nueva pregunta
+    setTestData((prev) => {
+      if (!prev) {
+        console.warn('[MANICOMIO] testData es null');
+        return prev;
+      }
+      const newPreguntas = [...(prev.preguntas || []), nextQuestionData];
+      console.debug('[MANICOMIO] testData actualizado. Preguntas totales:', newPreguntas.length);
+      return { ...prev, preguntas: newPreguntas };
+    });
+
+    // 3. Limpiar respuestas y avanzar índice
+    setRespuestas((prev) => {
+      const updated = { ...prev };
+      // Limpiar la pregunta ANTERIOR para que no se re-envíe
+      if (previousPreguntaId) {
+        delete updated[previousPreguntaId];
+        console.debug('[MANICOMIO] Limpiada respuesta de pregunta:', previousPreguntaId);
+      }
+      console.debug('[MANICOMIO] Respuestas DESPUÉS de limpiar:', { ...updated });
+      return updated;
+    });
+
+    setCurrentQuestionIndex((prev) => {
+      const newIndex = prev + 1;
+      console.debug('[MANICOMIO] Índice avanzado de', prev, 'a', newIndex);
+      return newIndex;
+    });
+
+    console.debug('[MANICOMIO] ===== handleManicomioContinue FIN =====');
   };
 
   if (loading) {
@@ -313,16 +392,24 @@ export const TestTake = () => {
                 question={currentQuestion}
                 respuesta={currentRespuesta}
                 onRespuestaChange={handleAnswerChange}
-                disabled={manicomioLogic.loading}
+                disabled={manicomioLogic.loading || (isManicomio && pendingManicomioResult)}
               />
+
+              {/* Feedback: Ya respondiste esta pregunta (MANICOMIO) */}
+              {isManicomio && pendingManicomioResult && (
+                <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
+                  ✅ Ya has respondido a esta pregunta. Revisa el resultado abajo y continúa cuando estés listo.
+                </Alert>
+              )}
 
               {/* Feedback de MANICOMIO */}
               {isManicomio && (
                 <ManicomioFeedback
-                  feedback={manicomioLogic.feedback}
+                  feedback={pendingManicomioResult || manicomioLogic.feedback}
                   streakCurrent={manicomioLogic.streakCurrent}
                   streakMax={manicomioLogic.streakMax}
                   streakTarget={testData.streakTarget}
+                  correctasTotales={manicomioCorrectas}
                 />
               )}
 
@@ -398,6 +485,57 @@ export const TestTake = () => {
             <Button color="error" onClick={handleDeleteTestAttempt} disabled={deleting}>
               {deleting ? 'Eliminando...' : 'Eliminar'}
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Diálogo de feedback MANICOMIO (permite reportar antes de continuar) */}
+        <Dialog
+          open={!!pendingManicomioResult}
+          onClose={() => setPendingManicomioResult(null)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Resultado</DialogTitle>
+          <DialogContent>
+            <Alert
+              severity={pendingManicomioResult?.esCorrecta ? 'success' : 'error'}
+              sx={{ mb: 2 }}
+            >
+              {pendingManicomioResult?.esCorrecta
+                ? '✅ Respuesta correcta'
+                : '❌ Respuesta incorrecta, la racha se reinicia'}
+              {typeof pendingManicomioResult?.remaining === 'number' && (
+                <strong>
+                  {' '}
+                  · Te faltan {pendingManicomioResult.remaining} aciertos para llegar a {testData.streakTarget}.
+                </strong>
+              )}
+            </Alert>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+              Pregunta respondida:
+            </Typography>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              {pendingManicomioResult?.question?.enunciado}
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ justifyContent: 'space-between' }}>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={() => {
+                if (pendingManicomioResult?.question) {
+                  handleReportClick(pendingManicomioResult.question);
+                }
+              }}
+            >
+              Reportar esta pregunta
+            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button onClick={() => setPendingManicomioResult(null)}>Cerrar</Button>
+              <Button variant="contained" onClick={handleManicomioContinue}>
+                Continuar
+              </Button>
+            </Box>
           </DialogActions>
         </Dialog>
       </Box>

@@ -12,13 +12,19 @@ export const useManicomioLogic = (attemptId, testData, respuestas, currentQuesti
   const mode = testData?.mode || 'ALEATORIO';
 
   const handleManicomioAnswer = useCallback(
-    async (preguntaId, respuestaUsuario, setTestData, setCurrentQuestionIndex, setRespuestas) => {
+    async (preguntaId, respuestaUsuario) => {
       if (!preguntaId || !respuestaUsuario) {
         setError('Debes seleccionar una opción');
         return false;
       }
 
-      console.debug('[MANICOMIO] payload', { preguntaId, respuestaUsuario });
+      // Validar que no sea "__none" (en blanco)
+      if (respuestaUsuario === '__none') {
+        setError('Debes seleccionar una opción de respuesta');
+        return false;
+      }
+
+      console.debug('[MANICOMIO] Respondiendo pregunta', { preguntaId, respuestaUsuario });
 
       setError(null);
       setLoading(true);
@@ -32,45 +38,68 @@ export const useManicomioLogic = (attemptId, testData, respuestas, currentQuesti
         // Back devuelve { success, data: { ... } }
         const dataWrapper = response?.data ?? response;
         const data = dataWrapper?.data ?? dataWrapper;
+        
+        console.debug('[MANICOMIO] Respuesta recibida:', data);
+        
         setStreakCurrent(data.streakCurrent || 0);
         setStreakMax(data.streakMax || 0);
         setFeedback({
           esCorrecta: data.esCorrecta,
           remaining: data.remaining,
+          message: data.esCorrecta 
+            ? '✅ ¡Respuesta correcta!' 
+            : '❌ Respuesta incorrecta, la racha se reinicia',
         });
 
         if (data.finished) {
+          console.debug('[MANICOMIO] Test finalizado');
           return { finished: true, puntaje: data.puntaje };
         }
 
-        // En MANICOMIO, cargar siguiente pregunta dinámicamente
+        // En MANICOMIO, cargar siguiente pregunta pero devolverla al caller para decidir cuándo avanzar
         if (mode === 'MANICOMIO') {
           try {
             const nextQuestion = await testsService.getNextManicomioQuestion(attemptId);
             const nextQuestionData = nextQuestion.data || nextQuestion;
-
-            // Actualizar state correctamente
-            setTestData((prev) => {
-              if (!prev) return prev;
-              const newPreguntas = [...(prev.preguntas || []), nextQuestionData];
-              return { ...prev, preguntas: newPreguntas };
-            });
-
-            // Esperar a que se actualice testData antes de cambiar índice
-            setCurrentQuestionIndex((prev) => prev + 1);
-            setRespuestas((prev) => ({ ...prev, [nextQuestionData.id]: '' }));
+            
+            console.debug('[MANICOMIO] Siguiente pregunta cargada:', nextQuestionData);
+            
+            return {
+              finished: false,
+              answered: true,
+              nextQuestion: nextQuestionData,
+              esCorrecta: data.esCorrecta,
+              remaining: data.remaining,
+              message: data.esCorrecta 
+                ? '✅ ¡Respuesta correcta!' 
+                : '❌ Respuesta incorrecta, la racha se reinicia',
+            };
           } catch (err) {
-            setError(err.response?.data?.message || 'Error al cargar la siguiente pregunta');
+            const errMsg = err.response?.data?.message || 'Error al cargar la siguiente pregunta';
+            setError(errMsg);
             console.error(err);
             return false;
           }
         }
 
-        setFeedback(null);
-        return true;
+        return {
+          finished: false,
+          answered: true,
+          esCorrecta: data.esCorrecta,
+          remaining: data.remaining,
+          message: data.esCorrecta 
+            ? '✅ ¡Respuesta correcta!' 
+            : '❌ Respuesta incorrecta, la racha se reinicia',
+        };
       } catch (err) {
-        setError(err.response?.data?.message || 'Error al enviar la respuesta');
-        console.error(err);
+        const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Error al enviar la respuesta';
+        setError(errMsg);
+        console.error('[MANICOMIO] Error detallado:', {
+          status: err.response?.status,
+          message: errMsg,
+          data: err.response?.data,
+          fullError: err,
+        });
         return false;
       } finally {
         setLoading(false);
