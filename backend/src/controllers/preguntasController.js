@@ -99,6 +99,7 @@ export const createPregunta = async (req, res, next) => {
       opcionD,
       respuestaCorrecta,
       explicacion,
+      tip,
       dificultad = 'MEDIUM',
       status = 'DRAFT',
       temaId,
@@ -137,6 +138,7 @@ export const createPregunta = async (req, res, next) => {
         opcionD,
         respuestaCorrecta,
         explicacion,
+        tip,
         dificultad,
         status,
         temaId,
@@ -177,6 +179,8 @@ export const updatePregunta = async (req, res, next) => {
     if (updateData.dificultad && !['EASY', 'MEDIUM', 'HARD'].includes(updateData.dificultad)) {
       throw new AppError('Dificultad debe ser EASY, MEDIUM o HARD', 400);
     }
+
+    // Asegurar que el campo tip pueda actualizarse sin restricciones adicionales
 
     const pregunta = await prisma.pregunta.update({
       where: { id },
