@@ -26,9 +26,6 @@ POST   /auth/register          # Registro de usuario
 POST   /auth/login             # Login (retorna JWT)
 POST   /auth/logout            # Logout
 GET    /auth/me                # Obtener usuario actual
-POST   /auth/refresh           # Refrescar token JWT
-POST   /auth/forgot-password   # Solicitar reset de contraseña
-POST   /auth/reset-password    # Resetear contraseña con token
 ```
 
 **Ejemplo Request - Register:**
@@ -61,18 +58,6 @@ POST /auth/register
 
 ---
 
-### 👤 Usuarios (`/users`)
-
-```http
-GET    /users                  # [ADMIN] Listar usuarios
-GET    /users/:id              # [ADMIN] Ver usuario
-PUT    /users/:id              # [ADMIN/OWNER] Actualizar usuario
-DELETE /users/:id              # [ADMIN] Eliminar usuario
-PUT    /users/:id/role         # [ADMIN] Cambiar rol
-```
-
----
-
 ### 📚 Oposiciones (`/oposiciones`)
 
 ```http
@@ -81,7 +66,6 @@ GET    /oposiciones/:id        # Ver oposición específica
 POST   /oposiciones            # [ADMIN] Crear oposición
 PUT    /oposiciones/:id        # [ADMIN] Actualizar oposición
 DELETE /oposiciones/:id        # [ADMIN] Eliminar oposición
-GET    /oposiciones/:id/temas  # Obtener temas de una oposición
 ```
 
 **Ejemplo Request - Crear Oposición:**
@@ -104,7 +88,6 @@ GET    /temas/:id              # Ver tema específico
 POST   /temas                  # [ADMIN] Crear tema
 PUT    /temas/:id              # [ADMIN] Actualizar tema
 DELETE /temas/:id              # [ADMIN] Eliminar tema
-GET    /temas/:id/preguntas    # Obtener preguntas de un tema
 ```
 
 **Ejemplo Request - Crear Tema:**
@@ -124,15 +107,13 @@ POST /temas
 
 ```http
 GET    /preguntas                      # Listar preguntas (con filtros)
+GET    /preguntas/random               # [AUTH] Obtener preguntas aleatorias
 GET    /preguntas/:id                  # Ver pregunta específica
 POST   /preguntas                      # [ADMIN] Crear pregunta
 PUT    /preguntas/:id                  # [ADMIN] Actualizar pregunta
 DELETE /preguntas/:id                  # [ADMIN] Eliminar pregunta
-POST   /preguntas/batch                # [ADMIN] Crear múltiples preguntas
-GET    /preguntas/random               # Obtener preguntas aleatorias
-POST   /preguntas/:id/report           # Reportar pregunta errónea
-GET    /preguntas/reportadas           # [ADMIN] Ver preguntas reportadas
-PUT    /preguntas/:id/resolve-report   # [ADMIN] Resolver reporte
+POST   /preguntas/bulk-update-tema     # [ADMIN] Actualizar tema en lote
+POST   /preguntas/upload-image         # [ADMIN] Subir imagen (multipart/form-data)
 ```
 
 **Query Params para GET /preguntas:**
@@ -184,61 +165,18 @@ POST /preguntas/batch
 
 ---
 
-### 📝 Tests (`/tests`)
+### 📝 Tests e Intentos (`/tests`)
 
 ```http
-GET    /tests                  # Listar tests guardados
-GET    /tests/:id              # Ver test específico
-POST   /tests                  # Crear configuración de test
-PUT    /tests/:id              # Actualizar test
-DELETE /tests/:id              # Eliminar test
-POST   /tests/generate         # Generar test aleatorio
-```
-
-**Ejemplo Request - Generar Test Aleatorio:**
-```json
-POST /tests/generate
-{
-  "oposicionId": "uuid-oposicion",
-  "cantidadPreguntas": 25,
-  "temaIds": ["uuid-tema-1", "uuid-tema-2"],  // Vacío = todos
-  "dificultad": null,                         // null = mixto
-  "tipoTest": "ALEATORIO"
-}
-```
-
-**Ejemplo Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "testId": "uuid-test",
-    "preguntas": [
-      {
-        "id": "uuid-pregunta-1",
-        "enunciado": "...",
-        "opciones": { "A": "...", "B": "...", "C": "...", "D": "..." },
-        "temaId": "uuid-tema",
-        "dificultad": 2
-        // NO incluye respuestaCorrecta ni explicacion
-      },
-      // ... 24 preguntas más
-    ]
-  }
-}
-```
-
----
-
-### 📊 Intentos (`/intentos`)
-
-```http
-GET    /intentos               # Listar intentos del usuario actual
-GET    /intentos/:id           # Ver intento específico (con respuestas)
-POST   /intentos               # Iniciar nuevo intento
-PUT    /intentos/:id           # Actualizar intento (guardar progreso)
-POST   /intentos/:id/submit    # Finalizar y corregir intento
-DELETE /intentos/:id           # Eliminar intento
+POST   /tests/attempts                  # Iniciar intento
+POST   /tests/attempts/submit           # Finalizar y corregir (no MANICOMIO)
+POST   /tests/attempts/:id/finish       # Finalizar intento (rendirse)
+POST   /tests/attempts/:id/answer       # Responder en MANICOMIO
+GET    /tests/attempts/:id/next-question# Siguiente pregunta MANICOMIO
+GET    /tests/attempts/:id              # Ver intento específico
+DELETE /tests/attempts/:id              # Eliminar intento
+GET    /tests/history                   # Historial del usuario
+GET    /tests/stats                     # Estadísticas generales del usuario
 ```
 
 **Ejemplo Request - Iniciar Intento:**
@@ -256,7 +194,7 @@ POST /intentos
 
 **Ejemplo Request - Submit (Finalizar Test):**
 ```json
-POST /intentos/:id/submit
+POST /tests/attempts/submit
 {
   "respuestas": [
     {
@@ -303,14 +241,48 @@ POST /intentos/:id/submit
 
 ---
 
-### 📈 Estadísticas (`/stats`)
+---
+
+### ⭐ Favoritos
 
 ```http
-GET    /stats/general          # Estadísticas generales del usuario
-GET    /stats/por-tema         # Estadísticas desglosadas por tema
-GET    /stats/por-dificultad   # Estadísticas por dificultad
-GET    /stats/historico        # Histórico de intentos (gráfica)
-GET    /stats/preguntas-dificiles  # Preguntas más falladas
+POST   /preguntas/:preguntaId/favorite   # Toggle favorito
+GET    /preguntas/favorites              # Listar favoritos
+GET    /preguntas/:preguntaId/favorite   # Consultar si es favorito
+```
+
+---
+
+### 🐞 Reportes de preguntas
+
+```http
+POST   /preguntas/:preguntaId/report     # Crear reporte
+GET    /reports                          # [ADMIN] Listar reportes
+GET    /preguntas/:preguntaId/reports    # [ADMIN] Reportes de pregunta
+PATCH  /reports/:reportId/status         # [ADMIN] Cambiar estado
+DELETE /reports/:reportId                # [ADMIN] Eliminar reporte
+DELETE /preguntas/:preguntaId/reports    # [ADMIN] Eliminar reportes de pregunta
+```
+
+---
+
+### 🔄 Anki
+
+```http
+POST   /anki/preguntas/:id/grade         # Calificar pregunta
+GET    /anki/preguntas/due               # Preguntas vencidas
+GET    /anki/oposiciones/:id/stats       # Stats por oposición
+GET    /anki/temas/:id/stats             # Stats por tema
+POST   /anki/batch-update                # Actualización en lote
+```
+
+---
+
+### 🧰 Mantenimiento
+
+```http
+GET    /maintenance/db-backup            # [ADMIN] Descargar backup
+POST   /maintenance/db-restore           # [ADMIN] Restaurar backup (multipart)
 ```
 
 **Ejemplo Response - Estadísticas Generales:**

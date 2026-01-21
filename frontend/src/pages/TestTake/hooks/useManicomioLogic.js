@@ -69,6 +69,10 @@ export const useManicomioLogic = (attemptId, testData, respuestas, currentQuesti
               answered: true,
               nextQuestion: nextQuestionData,
               esCorrecta: data.esCorrecta,
+              respuestaCorrecta: data.respuestaCorrecta,
+              textoRespuestaUsuario: data.textoRespuestaUsuario,
+              textoRespuestaCorrecta: data.textoRespuestaCorrecta,
+              preguntaActual: data.preguntaActual,
               remaining: data.remaining,
               message: data.esCorrecta 
                 ? '✅ ¡Respuesta correcta!' 

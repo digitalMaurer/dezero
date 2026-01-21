@@ -114,6 +114,11 @@ export const testsService = {
     return response.data;
   },
 
+  async finishAttempt(id) {
+    const response = await apiClient.post(`/tests/attempts/${id}/finish`);
+    return response.data;
+  },
+
   async answerQuestion(attemptId, payload) {
     const response = await apiClient.post(`/tests/attempts/${attemptId}/answer`, payload);
     return response.data;

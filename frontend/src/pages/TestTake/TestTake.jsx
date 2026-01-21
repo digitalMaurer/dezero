@@ -1,31 +1,28 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTestTimer } from './hooks/useTestTimer';
 import {
   Box,
   Button,
   CircularProgress,
   Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Grid,
   Alert,
   Paper,
-  Typography,
-  Tooltip,
-  TextField,
 } from '@mui/material';
 import { useTestData } from './hooks/useTestData';
 import { useManicomioLogic } from './hooks/useManicomioLogic';
+import { useManicomioFlow } from './hooks/useManicomioFlow';
+import { useAttemptActions } from './hooks/useAttemptActions';
+import { useQuestionMeta } from './hooks/useQuestionMeta';
 import { QuestionDisplay } from './components/QuestionDisplay';
 import { ManicomioFeedback } from './components/ManicomioFeedback';
 import { TestHeader } from './components/TestHeader';
 import { QuestionControls } from './components/QuestionControls';
 import { QuestionMap } from './components/QuestionMap';
-import { ReviewDialog } from './components/ReviewDialog';
-import { QuestionActions, ReportDialog } from './components/QuestionActions';
-import { preguntasService, testsService, favoritesService } from '../../services/apiServices';
+import { QuestionActions } from './components/QuestionActions';
+import { TestTakeDialogs } from './components/TestTakeDialogs';
+import { TestActionsBar } from './components/TestActionsBar';
 
 /**
  * MEJORAS FUTURAS:
@@ -63,22 +60,7 @@ export const TestTake = () => {
 
   // Estado local
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [openReviewDialog, setOpenReviewDialog] = useState(false);
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [openReportDialog, setOpenReportDialog] = useState(false);
-  const [reportingQuestion, setReportingQuestion] = useState(null);
-  const [reportSubmitting, setReportSubmitting] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [favorites, setFavorites] = useState({});
-  const [pendingManicomioResult, setPendingManicomioResult] = useState(null);
-  const [manicomioCorrectas, setManicomioCorrectas] = useState(0);
-  const [tipDraft, setTipDraft] = useState('');
-  const [savingTip, setSavingTip] = useState(false);
-  const [tipError, setTipError] = useState(null);
 
   // Hook específico para MANICOMIO
   const manicomioLogic = useManicomioLogic(
@@ -88,19 +70,88 @@ export const TestTake = () => {
     currentQuestionIndex
   );
 
-  // Definir variables derivadas ANTES de los useEffects
+  // Derivados usados por varios hooks
   const isManicomio = testData?.mode === 'MANICOMIO';
   const currentQuestion = testData?.preguntas?.[currentQuestionIndex];
-  const currentRespuesta = respuestas[currentQuestion?.id] || '';
+  const currentRespuesta = currentQuestion ? respuestas[currentQuestion.id] || '' : '';
 
-  // Timer para elapsed time
-  useEffect(() => {
-    if (isPaused || !testData?.tiempoInicio) return;
-    const intervalId = setInterval(() => {
-      setElapsedTime((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(intervalId);
-  }, [isPaused, testData]);
+  // Timer y estimaciones
+  const {
+    elapsedTime,
+    isPaused,
+    togglePause,
+    tiempoEstimado,
+    tiempoRestante,
+  } = useTestTimer({
+    tiempoInicio: testData?.tiempoInicio,
+    questionCount: testData?.preguntas?.length || 0,
+  });
+
+  const {
+    openReviewDialog,
+    setOpenReviewDialog,
+    openDeleteDialog,
+    setOpenDeleteDialog,
+    openSurrenderDialog,
+    setOpenSurrenderDialog,
+    deleting,
+    surrendering,
+    submitting,
+    error: attemptError,
+    setError: setAttemptError,
+    handleFinishClick,
+    handleSubmit,
+    handleDeleteTestAttempt,
+    handleSurrenderAttempt,
+  } = useAttemptActions({
+    attemptId,
+    testData,
+    respuestas,
+    navigate,
+  });
+
+  const {
+    pendingManicomioResult,
+    setPendingManicomioResult,
+    manicomioCorrectas,
+    handleManicomioAnswerClick,
+    handleManicomioContinue,
+  } = useManicomioFlow({
+    attemptId,
+    currentQuestion,
+    currentRespuesta,
+    setRespuestas,
+    setTestData,
+    setCurrentQuestionIndex,
+    navigate,
+    manicomioLogic,
+  });
+
+  const {
+    openReportDialog,
+    setOpenReportDialog,
+    reportingQuestion,
+    setReportingQuestion,
+    reportSubmitting,
+    favorites,
+    tipDraft,
+    setTipDraft,
+    tipError,
+    savingTip,
+    ankiSaving,
+    ankiGrade,
+    ankiError,
+    handleReportClick,
+    handleSubmitReport,
+    handleToggleFavorite,
+    handleSaveTip,
+    handleManicomioAnkiGrade,
+  } = useQuestionMeta({
+    attemptId,
+    pendingManicomioResult,
+    setPendingManicomioResult,
+    setTestData,
+  });
 
   // Cuando el índice cambia (siguiente pregunta), resetear la respuesta actual
   useEffect(() => {
@@ -116,25 +167,10 @@ export const TestTake = () => {
     localStorage.setItem(`test_answers_${attemptId}`, JSON.stringify(respuestas));
   }, [attemptId, respuestas]);
 
-  // Sincronizar tipDraft cuando se muestra resultado MANICOMIO
-  useEffect(() => {
-    if (pendingManicomioResult?.question) {
-      setTipDraft(pendingManicomioResult.question.tip || '');
-      setTipError(null);
-    }
-  }, [pendingManicomioResult?.question]);
-
   const progress = useMemo(() => {
     if (!testData?.preguntas?.length) return 0;
     return ((currentQuestionIndex + 1) / testData.preguntas.length) * 100;
   }, [currentQuestionIndex, testData]);
-
-  const tiempoEstimado = useMemo(() => {
-    if (!testData?.preguntas?.length) return 0;
-    return testData.preguntas.length * 120; // 2 min por pregunta
-  }, [testData]);
-
-  const tiempoRestante = tiempoEstimado - elapsedTime;
 
   const handleAnswerChange = (newRespuesta) => {
     if (newRespuesta === '__none') {
@@ -167,248 +203,13 @@ export const TestTake = () => {
     setCurrentQuestionIndex(index);
   };
 
-  const handleFinishClick = () => {
-    setOpenReviewDialog(true);
-  };
-
-  const handleSubmit = async () => {
-    setOpenReviewDialog(false);
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const respuestasArray = testData.preguntas.map((pregunta) => ({
-        preguntaId: pregunta.id,
-        respuestaUsuario: respuestas[pregunta.id] || '',
-      }));
-
-      const response = await testsService.submitAttempt(attemptId, respuestasArray);
-
-      localStorage.removeItem(`test_${attemptId}`);
-      localStorage.removeItem(`test_answers_${attemptId}`);
-
-      navigate(`/test/results/${attemptId}`, {
-        state: { results: response.data || response },
-      });
-    } catch (err) {
-      setError(err.response?.data?.message || 'Error al enviar el test');
-      console.error(err);
-    } finally {
-      setSubmitting(false);
+  useEffect(() => {
+    if (attemptError) {
+      setError(attemptError);
+      setAttemptError(null);
     }
-  };
+  }, [attemptError, setAttemptError]);
 
-  const handleReportClick = (question) => {
-    setReportingQuestion(question);
-    setOpenReportDialog(true);
-  };
-
-  const handleSubmitReport = async (mensaje) => {
-    if (!mensaje.trim() || !reportingQuestion) {
-      return;
-    }
-
-    setReportSubmitting(true);
-
-    try {
-      await preguntasService.reportQuestion(reportingQuestion.id, {
-        mensaje,
-        attemptId,
-      });
-
-      setOpenReportDialog(false);
-      setReportingQuestion(null);
-      alert('✅ Pregunta reportada. Gracias por ayudarnos a mejorar.');
-    } catch (err) {
-      alert('Error al reportar la pregunta');
-      console.error(err);
-    } finally {
-      setReportSubmitting(false);
-    }
-  };
-
-  const handleSaveTip = async () => {
-    if (!pendingManicomioResult?.question?.id) return;
-    setSavingTip(true);
-    setTipError(null);
-    try {
-      await preguntasService.update(pendingManicomioResult.question.id, { tip: tipDraft });
-
-      // Actualizar el estado local del modal
-      setPendingManicomioResult((prev) =>
-        prev
-          ? {
-              ...prev,
-              question: {
-                ...prev.question,
-                tip: tipDraft,
-              },
-            }
-          : prev
-      );
-
-      // Actualizar testData para mantener consistencia
-      setTestData((prev) => {
-        if (!prev?.preguntas) return prev;
-        return {
-          ...prev,
-          preguntas: prev.preguntas.map((p) =>
-            p.id === pendingManicomioResult.question.id ? { ...p, tip: tipDraft } : p
-          ),
-        };
-      });
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Error al guardar el tip';
-      setTipError(msg);
-      console.error(err);
-    } finally {
-      setSavingTip(false);
-    }
-  };
-
-  const handleToggleFavorite = async (preguntaId) => {
-    try {
-      const response = await favoritesService.toggle(preguntaId);
-      const isFavorite = response.data?.isFavorite;
-      setFavorites((prev) => ({ ...prev, [preguntaId]: isFavorite }));
-    } catch (err) {
-      console.error('Error al actualizar favorito:', err);
-    }
-  };
-
-  const handleDeleteTestAttempt = async () => {
-    const confirmed = window.confirm('¿Seguro que quieres eliminar este test en curso? No se podrá recuperar.');
-    if (!confirmed) return;
-
-    setDeleting(true);
-    setError(null);
-
-    try {
-      await testsService.deleteAttempt(attemptId);
-      localStorage.removeItem(`test_${attemptId}`);
-      localStorage.removeItem(`test_answers_${attemptId}`);
-      setOpenDeleteDialog(false);
-      navigate('/estadisticas');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Error al eliminar el test');
-      console.error(err);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleManicomioAnswerClick = async () => {
-    console.debug('[MANICOMIO] currentQuestion', currentQuestion);
-    console.debug('[MANICOMIO] currentRespuesta', currentRespuesta);
-    const result = await manicomioLogic.handleManicomioAnswer(
-      currentQuestion.id,
-      currentRespuesta
-    );
-
-    if (!result) return;
-
-    // Si la pregunta estaba bloqueada (ya respondida), auto-recuperar
-    if (result.blocked) {
-      console.warn('[MANICOMIO] Pregunta bloqueada, cargando siguiente automáticamente');
-      alert('⚠️ Esta pregunta ya fue registrada. Cargando siguiente pregunta...');
-      
-      // Limpiar respuesta del estado
-      setRespuestas((prev) => {
-        const updated = { ...prev };
-        delete updated[currentQuestion.id];
-        return updated;
-      });
-      
-      // Cargar siguiente pregunta directamente del backend
-      try {
-        const response = await testsService.getNextManicomioQuestion(attemptId);
-        const nextQuestion = response.data;
-        
-        // Agregar la nueva pregunta al testData
-        setTestData((prev) => ({
-          ...prev,
-          preguntas: [...(prev.preguntas || []), nextQuestion],
-        }));
-        
-        // Avanzar al índice de la nueva pregunta
-        setCurrentQuestionIndex((prev) => prev + 1);
-        
-        console.debug('[MANICOMIO] Nueva pregunta cargada después de bloqueo:', nextQuestion.id);
-      } catch (err) {
-        console.error('[MANICOMIO] Error al cargar siguiente pregunta:', err);
-        alert('Error al cargar la siguiente pregunta. Por favor, recarga la página.');
-      }
-      
-      return;
-    }
-
-    if (result.esCorrecta) {
-      setManicomioCorrectas((prev) => prev + 1);
-    }
-
-    if (result.finished) {
-      localStorage.removeItem(`test_${attemptId}`);
-      localStorage.removeItem(`test_answers_${attemptId}`);
-      navigate(`/test/results/${attemptId}`);
-      return;
-    }
-
-    setPendingManicomioResult({
-      ...result,
-      question: currentQuestion,
-      respuesta: currentRespuesta,
-    });
-  };
-
-  const handleManicomioContinue = () => {
-    if (!pendingManicomioResult?.nextQuestion) {
-      console.warn('[MANICOMIO] No hay siguiente pregunta disponible');
-      setPendingManicomioResult(null);
-      return;
-    }
-
-    const nextQuestionData = pendingManicomioResult.nextQuestion;
-    const previousPreguntaId = currentQuestion?.id;
-    
-    console.debug('[MANICOMIO] ===== handleManicomioContinue INICIO =====');
-    console.debug('[MANICOMIO] Pregunta anterior:', previousPreguntaId);
-    console.debug('[MANICOMIO] Siguiente pregunta:', nextQuestionData.id);
-    console.debug('[MANICOMIO] Respuestas ANTES de limpiar:', { ...respuestas });
-
-    // 1. Cerrar modal
-    setPendingManicomioResult(null);
-
-    // 2. Actualizar testData agregando la nueva pregunta
-    setTestData((prev) => {
-      if (!prev) {
-        console.warn('[MANICOMIO] testData es null');
-        return prev;
-      }
-      const newPreguntas = [...(prev.preguntas || []), nextQuestionData];
-      console.debug('[MANICOMIO] testData actualizado. Preguntas totales:', newPreguntas.length);
-      return { ...prev, preguntas: newPreguntas };
-    });
-
-    // 3. Limpiar respuestas y avanzar índice
-    setRespuestas((prev) => {
-      const updated = { ...prev };
-      // Limpiar la pregunta ANTERIOR para que no se re-envíe
-      if (previousPreguntaId) {
-        delete updated[previousPreguntaId];
-        console.debug('[MANICOMIO] Limpiada respuesta de pregunta:', previousPreguntaId);
-      }
-      console.debug('[MANICOMIO] Respuestas DESPUÉS de limpiar:', { ...updated });
-      return updated;
-    });
-
-    setCurrentQuestionIndex((prev) => {
-      const newIndex = prev + 1;
-      console.debug('[MANICOMIO] Índice avanzado de', prev, 'a', newIndex);
-      return newIndex;
-    });
-
-    console.debug('[MANICOMIO] ===== handleManicomioContinue FIN =====');
-  };
 
   if (loading) {
     return (
@@ -457,23 +258,16 @@ export const TestTake = () => {
           elapsedTime={elapsedTime}
           tiempoRestante={tiempoRestante}
           isPaused={isPaused}
-          onTogglePause={() => setIsPaused(!isPaused)}
+          onTogglePause={togglePause}
           progress={progress}
         />
 
-        {/* Botón eliminar test */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-          <Tooltip title="Eliminar este test en curso">
-            <Button
-              variant="outlined"
-              color="error"
-              size="small"
-              onClick={() => setOpenDeleteDialog(true)}
-            >
-              🗑️ Eliminar Test
-            </Button>
-          </Tooltip>
-        </Box>
+        <TestActionsBar
+          onSurrender={() => setOpenSurrenderDialog(true)}
+          onDelete={() => setOpenDeleteDialog(true)}
+          surrendering={surrendering}
+          deleting={deleting}
+        />
 
         {/* Mensajes de error */}
         {error && (
@@ -554,132 +348,58 @@ export const TestTake = () => {
           )}
         </Grid>
 
-        {/* Diálogo de revisión */}
-        <ReviewDialog
-          open={openReviewDialog}
-          onClose={() => setOpenReviewDialog(false)}
-          onConfirm={handleSubmit}
-          respondidas={Object.keys(respuestas).length}
-          totalPreguntas={testData.preguntas.length}
-          elapsedTime={elapsedTime}
-          submitting={submitting}
-        />
-
-        {/* Diálogo de reportar pregunta */}
-        <ReportDialog
-          open={openReportDialog}
-          onClose={() => {
-            setOpenReportDialog(false);
-            setReportingQuestion(null);
+        <TestTakeDialogs
+          review={{
+            open: openReviewDialog,
+            onClose: () => setOpenReviewDialog(false),
+            onConfirm: handleSubmit,
+            respondidas: Object.keys(respuestas).length,
+            totalPreguntas: testData.preguntas.length,
+            elapsedTime,
+            submitting,
           }}
-          onSubmit={handleSubmitReport}
-          reportingQuestion={reportingQuestion}
-          submitting={reportSubmitting}
+          report={{
+            open: openReportDialog,
+            onClose: () => {
+              setOpenReportDialog(false);
+              setReportingQuestion(null);
+            },
+            onSubmit: handleSubmitReport,
+            reportingQuestion,
+            submitting: reportSubmitting,
+          }}
+          surrender={{
+            open: openSurrenderDialog,
+            onClose: () => setOpenSurrenderDialog(false),
+            onConfirm: handleSurrenderAttempt,
+            loading: surrendering,
+          }}
+          deletion={{
+            open: openDeleteDialog,
+            onClose: () => setOpenDeleteDialog(false),
+            onConfirm: handleDeleteTestAttempt,
+            loading: deleting,
+          }}
+          manicomio={{
+            open: !!pendingManicomioResult,
+            result: pendingManicomioResult,
+            streakTarget: testData.streakTarget,
+            favorites,
+            tipDraft,
+            tipError,
+            savingTip,
+            ankiSaving,
+            ankiGrade,
+            ankiError,
+            onClose: () => setPendingManicomioResult(null),
+            onReport: handleReportClick,
+            onToggleFavorite: handleToggleFavorite,
+            onSaveTip: handleSaveTip,
+            onTipChange: setTipDraft,
+            onAnkiGrade: handleManicomioAnkiGrade,
+            onContinue: handleManicomioContinue,
+          }}
         />
-
-        {/* Diálogo eliminar test */}
-        <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-          <DialogTitle>🗑️ Eliminar Test en Curso</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" sx={{ mt: 2 }}>
-              ¿Seguro que quieres eliminar este test? No se podrá recuperar.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenDeleteDialog(false)}>Cancelar</Button>
-            <Button color="error" onClick={handleDeleteTestAttempt} disabled={deleting}>
-              {deleting ? 'Eliminando...' : 'Eliminar'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Diálogo de feedback MANICOMIO (permite reportar antes de continuar) */}
-        <Dialog
-          open={!!pendingManicomioResult}
-          onClose={() => setPendingManicomioResult(null)}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>Resultado</DialogTitle>
-          <DialogContent>
-            <Alert
-              severity={pendingManicomioResult?.esCorrecta ? 'success' : 'error'}
-              sx={{ mb: 2 }}
-            >
-              {pendingManicomioResult?.esCorrecta
-                ? '✅ Respuesta correcta'
-                : '❌ Respuesta incorrecta, la racha se reinicia'}
-              {typeof pendingManicomioResult?.remaining === 'number' && (
-                <strong>
-                  {' '}
-                  · Te faltan {pendingManicomioResult.remaining} aciertos para llegar a {testData.streakTarget}.
-                </strong>
-              )}
-            </Alert>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
-              Pregunta respondida:
-            </Typography>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              {pendingManicomioResult?.question?.enunciado}
-            </Typography>
-
-            {/* Tip editable */}
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
-              Tip (puedes editarlo):
-            </Typography>
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              maxRows={4}
-              value={tipDraft}
-              onChange={(e) => setTipDraft(e.target.value)}
-              placeholder="Añade una pista o mnemotecnia para recordar"
-              sx={{ mb: 2 }}
-              error={!!tipError}
-              helperText={tipError || 'Guárdalo para reutilizar esta pista cuando reaparezca'}
-              disabled={savingTip}
-            />
-
-            {/* Explicación */}
-            {pendingManicomioResult?.question?.explicacion && (
-              <Box sx={{ mb: 1 }}>
-                <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
-                  Explicación:
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                  {pendingManicomioResult.question.explicacion}
-                </Typography>
-              </Box>
-            )}
-          </DialogContent>
-          <DialogActions sx={{ justifyContent: 'space-between' }}>
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={() => {
-                if (pendingManicomioResult?.question) {
-                  handleReportClick(pendingManicomioResult.question);
-                }
-              }}
-            >
-              Reportar esta pregunta
-            </Button>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant="outlined"
-                onClick={handleSaveTip}
-                disabled={savingTip}
-              >
-                {savingTip ? 'Guardando...' : 'Guardar tip'}
-              </Button>
-              <Button onClick={() => setPendingManicomioResult(null)}>Cerrar</Button>
-              <Button variant="contained" onClick={handleManicomioContinue}>
-                Continuar
-              </Button>
-            </Box>
-          </DialogActions>
-        </Dialog>
       </Box>
     </Container>
   );

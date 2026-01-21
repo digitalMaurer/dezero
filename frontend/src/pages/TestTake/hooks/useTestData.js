@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { testsService } from '../../../services/apiServices';
 
+const shuffleArray = (arr) => {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
 export const useTestData = (attemptId) => {
   const [testData, setTestData] = useState(null);
   const [respuestas, setRespuestas] = useState({});
@@ -29,11 +38,19 @@ export const useTestData = (attemptId) => {
           // Validar cache; si está incompleta, ignorar y forzar fetch
           const cacheIsValid = Array.isArray(parsed.preguntas) && parsed.preguntas.every(isPreguntaValid);
           if (cacheIsValid) {
-            setTestData(parsed);
+            const normalized = {
+              ...parsed,
+              preguntas:
+                parsed.mode === 'MANICOMIO' && Array.isArray(parsed.preguntas)
+                  ? shuffleArray(parsed.preguntas)
+                  : parsed.preguntas,
+            };
+            setTestData(normalized);
             const savedAnswers = localStorage.getItem(`test_answers_${attemptId}`);
             if (savedAnswers) {
               setRespuestas(JSON.parse(savedAnswers));
             }
+            localStorage.setItem(`test_${attemptId}`, JSON.stringify(normalized));
             setLoading(false);
             return;
           }
@@ -131,7 +148,15 @@ export const useTestData = (attemptId) => {
           streakTarget: attempt.streakTarget || 30,
         };
 
-        setTestData(normalized);
+        const normalizedWithShuffle = {
+          ...normalized,
+          preguntas:
+            normalized.mode === 'MANICOMIO' && Array.isArray(normalized.preguntas)
+              ? shuffleArray(normalized.preguntas)
+              : normalized.preguntas,
+        };
+
+        setTestData(normalizedWithShuffle);
 
         if (attempt.respuestas?.length) {
           const restored = attempt.respuestas.reduce((acc, r) => {
@@ -142,7 +167,7 @@ export const useTestData = (attemptId) => {
         }
 
         // Cachear solo si son válidas
-        localStorage.setItem(`test_${attemptId}`, JSON.stringify(normalized));
+        localStorage.setItem(`test_${attemptId}`, JSON.stringify(normalizedWithShuffle));
       } catch (err) {
         setError(err.message || 'Error al cargar el test');
         console.error(err);

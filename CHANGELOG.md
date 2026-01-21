@@ -1,6 +1,31 @@
 # Changelog
 
-## 2026-01-20 (Sesión actual)
+## 2026-01-21 (Sesión actual)
+
+### Refactor Backend - Modularización de controladores y selector de preguntas
+- **Backend services** (`backend/src/services/questionSelector.js`): extracción de lógica de selección de preguntas por modo (ALEATORIO, FILTRADO, ANKI, REPASO, SIMULACRO_EXAMEN, FAVORITOS, MANICOMIO) a servicio centralizado con estrategia por modo.
+  - `isPreguntaValid` compartido: valida **4 opciones** (A,B,C,D) para evitar preguntas incompletas.
+  - `selectQuestionsForAttempt`: función unificada que recibe `mode`, `oposicionId`, `temasSeleccionados`, `cantidad`, `dificultad`, `filtroTipo`, `filtroOrden`, `userId`.
+  - Modo FILTRADO ahora **requiere** `filtroTipo` (valida en selector, responde 400 si falta).
+- **Backend controllers refactorización**:
+  - `attemptsController.js`: simplificado para usar `selectQuestionsForAttempt`; envuelve creación de test + attempt en **transacción Prisma** (evita intentos huérfanos si falla algo).
+  - `manicomioController.js`: reutiliza `isPreguntaValid` compartido desde selector.
+  - Eliminadas ~200 líneas de lógica duplicada de selección entre controladores.
+
+### Refactor Frontend - Modularización de TestTake
+- **Frontend hooks** (nuevos):
+  - `useQuestionMeta.js`: gestiona report/favorito/tip/anki (estados, sincronización con resultado MANICOMIO, llamadas API).
+  - `useTestTimer.js`: controla tiempo transcurrido/pausa, estima tiempo total (2min×preguntas), expone `elapsedTime`, `isPaused`, `togglePause`, `tiempoRestante`.
+- **Frontend componentes** (nuevos con comentarios descriptivos):
+  - `TestTakeDialogs.jsx`: centraliza todos los diálogos (revisión, reporte, rendirse, eliminar, modal MANICOMIO).
+  - `TestActionsBar.jsx`: barra de acciones principales (rendirse/eliminar) con tooltips.
+- **TestTake.jsx**: reducido ~150 líneas; ahora consume hooks y componentes dedicados sin lógica inline de timer/favoritos/dialogs.
+  - Imports limpiados (sin `Tooltip`, `TextField`, `Dialog*` directos).
+  - Lógica de meta-pregunta (report/favorito/tip/anki) encapsulada en hook.
+
+## 2026-01-20
+
+### MANICOMIO - Lógica inteligente de repaso (Commit: 81abec3)
 
 ### MANICOMIO - Lógica inteligente de repaso (Commit: 81abec3)
 - **getNextManicomioQuestion** (`testsController.js`): implementada lógica de aprendizaje espaciado:
