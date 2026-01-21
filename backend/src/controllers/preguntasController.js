@@ -115,8 +115,8 @@ export const createPregunta = async (req, res, next) => {
       throw new AppError('Respuesta correcta debe ser A, B, C o D', 400);
     }
 
-    if (!['EASY', 'MEDIUM', 'HARD'].includes(dificultad)) {
-      throw new AppError('Dificultad debe ser EASY, MEDIUM o HARD', 400);
+    if (!['EASY', 'MEDIUM', 'HARD', 'ULTRAHARD'].includes(dificultad)) {
+      throw new AppError('Dificultad debe ser EASY, MEDIUM, HARD o ULTRAHARD', 400);
     }
 
     // Verificar que el tema existe
@@ -176,8 +176,8 @@ export const updatePregunta = async (req, res, next) => {
     }
 
     // Validar dificultad si se envía
-    if (updateData.dificultad && !['EASY', 'MEDIUM', 'HARD'].includes(updateData.dificultad)) {
-      throw new AppError('Dificultad debe ser EASY, MEDIUM o HARD', 400);
+    if (updateData.dificultad && !['EASY', 'MEDIUM', 'HARD', 'ULTRAHARD'].includes(updateData.dificultad)) {
+      throw new AppError('Dificultad debe ser EASY, MEDIUM, HARD o ULTRAHARD', 400);
     }
 
     // Asegurar que el campo tip pueda actualizarse sin restricciones adicionales

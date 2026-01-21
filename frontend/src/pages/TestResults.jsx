@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { getDifficultyLabel, getDifficultyColor } from '../utils/difficulty';
 import {
   Container,
   Box,
@@ -246,16 +247,10 @@ export const TestResults = () => {
                   Pregunta {index + 1}
                   {respuesta.pregunta?.dificultad && (
                     <Chip
-                      label={respuesta.pregunta.dificultad}
+                      label={getDifficultyLabel(respuesta.pregunta.dificultad)}
                       size="small"
                       sx={{ ml: 2 }}
-                      color={
-                        respuesta.pregunta.dificultad === 'EASY'
-                          ? 'success'
-                          : respuesta.pregunta.dificultad === 'MEDIUM'
-                          ? 'warning'
-                          : 'error'
-                      }
+                      color={getDifficultyColor(respuesta.pregunta.dificultad)}
                     />
                   )}
                 </Typography>

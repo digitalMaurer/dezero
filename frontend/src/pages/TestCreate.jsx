@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { getDifficultyLabel } from '../utils/difficulty';
 import {
   Container,
   Box,
@@ -572,6 +573,7 @@ export const TestCreate = () => {
                 <MenuItem value="EASY">Fácil</MenuItem>
                 <MenuItem value="MEDIUM">Media</MenuItem>
                 <MenuItem value="HARD">Difícil</MenuItem>
+                <MenuItem value="ULTRAHARD">Muy Difícil</MenuItem>
               </Select>
             </FormControl>
           )}
@@ -687,7 +689,7 @@ export const TestCreate = () => {
             </Typography>
             {formData.dificultad && (
               <Typography variant="caption" display="block">
-                • Dificultad: <strong>{formData.dificultad === 'EASY' ? 'Fácil' : formData.dificultad === 'MEDIUM' ? 'Media' : 'Difícil'}</strong>
+                • Dificultad: <strong>{getDifficultyLabel(formData.dificultad)}</strong>
               </Typography>
             )}
             {formData.mode === 'MANICOMIO' && (

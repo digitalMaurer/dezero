@@ -267,7 +267,7 @@ export async function getPreguntasConFiltro(temaIds, filtroTipo, dificultad, use
  * @returns {Array} Preguntas ordenadas
  */
 export function ordenarPreguntas(preguntas, orden) {
-  const dificultadOrder = { EASY: 1, MEDIUM: 2, HARD: 3 };
+  const dificultadOrder = { EASY: 1, MEDIUM: 2, HARD: 3, ULTRAHARD: 4 };
 
   switch (orden) {
     case 'DIFICULTAD_ASC':

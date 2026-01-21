@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { getDifficultyLabel, getDifficultyColor } from '../utils/difficulty';
 import {
   Container,
   Box,
@@ -882,6 +883,7 @@ export const AdminPreguntas = () => {
                     <MenuItem value="EASY">Fácil</MenuItem>
                     <MenuItem value="MEDIUM">Media</MenuItem>
                     <MenuItem value="HARD">Difícil</MenuItem>
+                    <MenuItem value="ULTRAHARD">Muy Difícil</MenuItem>
                   </Select>
                 </FormControl>
               </Box>
@@ -1056,15 +1058,9 @@ export const AdminPreguntas = () => {
                         <TableCell>{p.tema?.nombre || 'N/A'}</TableCell>
                         <TableCell>
                           <Chip
-                            label={p.dificultad}
+                            label={getDifficultyLabel(p.dificultad)}
                             size="small"
-                            color={
-                              p.dificultad === 'EASY'
-                                ? 'success'
-                                : p.dificultad === 'MEDIUM'
-                                ? 'warning'
-                                : 'error'
-                            }
+                            color={getDifficultyColor(p.dificultad)}
                           />
                         </TableCell>
                         <TableCell>{p.respuestaCorrecta}</TableCell>
@@ -1300,6 +1296,7 @@ export const AdminPreguntas = () => {
                   <MenuItem value="EASY">Fácil</MenuItem>
                   <MenuItem value="MEDIUM">Media</MenuItem>
                   <MenuItem value="HARD">Difícil</MenuItem>
+                  <MenuItem value="ULTRAHARD">Muy Difícil</MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -1417,14 +1414,8 @@ export const AdminPreguntas = () => {
                     size="small" 
                   />
                   <Chip 
-                    label={`Dificultad: ${viewingReport.pregunta?.dificultad}`}
-                    color={
-                      viewingReport.pregunta?.dificultad === 'EASY'
-                        ? 'success'
-                        : viewingReport.pregunta?.dificultad === 'MEDIUM'
-                        ? 'warning'
-                        : 'error'
-                    }
+                    label={`Dificultad: ${getDifficultyLabel(viewingReport.pregunta?.dificultad)}`}
+                    color={getDifficultyColor(viewingReport.pregunta?.dificultad)}
                     size="small" 
                   />
                 </Box>

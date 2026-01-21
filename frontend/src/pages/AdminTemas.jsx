@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getDifficultyLabel, getDifficultyColor } from '../utils/difficulty';
 import {
   Container,
   Box,
@@ -597,15 +598,9 @@ export const AdminTemas = () => {
                                       </TableCell>
                                       <TableCell align="center">
                                         <Chip
-                                          label={pregunta.dificultad}
+                                          label={getDifficultyLabel(pregunta.dificultad)}
                                           size="small"
-                                          color={
-                                            pregunta.dificultad === 'EASY'
-                                              ? 'success'
-                                              : pregunta.dificultad === 'MEDIUM'
-                                              ? 'warning'
-                                              : 'error'
-                                          }
+                                          color={getDifficultyColor(pregunta.dificultad)}
                                         />
                                       </TableCell>
                                       <TableCell align="right">
