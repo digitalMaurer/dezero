@@ -72,6 +72,7 @@ export const AdminTemas = () => {
   const [openImportDialog, setOpenImportDialog] = useState(false);
   const [importTemaId, setImportTemaId] = useState(null);
   const [importText, setImportText] = useState('');
+  const [importDificultad, setImportDificultad] = useState('MEDIUM');
 
   useEffect(() => {
     loadOposiciones();
@@ -359,7 +360,7 @@ export const AdminTemas = () => {
             respuestaCorrecta: p.respuestacorrecta,
             explicacion: p.explicacion,
             tip: p.tip,
-            dificultad: 'MEDIUM',
+            dificultad: importDificultad,
             status: 'PUBLISHED',
             temaId: importTemaId,
           });
@@ -706,6 +707,19 @@ export const AdminTemas = () => {
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             Formato: ID|Enunciado|OpciónA|OpciónB|OpciónC|OpciónD|Respuesta|Explicación|Tip
           </Typography>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Dificultad de todas las preguntas</InputLabel>
+            <Select
+              value={importDificultad}
+              onChange={(e) => setImportDificultad(e.target.value)}
+              label="Dificultad de todas las preguntas"
+            >
+              <MenuItem value="EASY">Fácil</MenuItem>
+              <MenuItem value="MEDIUM">Media</MenuItem>
+              <MenuItem value="HARD">Difícil</MenuItem>
+              <MenuItem value="ULTRAHARD">Muy Difícil</MenuItem>
+            </Select>
+          </FormControl>
           <TextField
             fullWidth
             multiline
