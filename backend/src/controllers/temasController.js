@@ -128,13 +128,24 @@ export const createTema = async (req, res, next) => {
 export const updateTema = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { nombre, descripcion } = req.body;
+    const { nombre, descripcion, oposicionId } = req.body;
+
+    // Si se cambia oposicionId (mover tema), verificar que existe
+    if (oposicionId) {
+      const oposicionExists = await prisma.oposicion.findUnique({
+        where: { id: oposicionId },
+      });
+      if (!oposicionExists) {
+        throw new AppError('Oposición destino no encontrada', 404);
+      }
+    }
 
     const tema = await prisma.tema.update({
       where: { id },
       data: {
         nombre,
         descripcion,
+        ...(oposicionId && { oposicionId }),
       },
       include: {
         oposicion: true,
@@ -197,6 +208,88 @@ export const deleteTema = async (req, res, next) => {
     if (error.code === 'P2025') {
       return next(new AppError('Tema no encontrado', 404));
     }
+    next(error);
+  }
+};
+
+// Copiar tema a otra oposición (duplica tema + todas sus preguntas)
+export const copyTema = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { targetOposicionId } = req.body;
+
+    if (!targetOposicionId) {
+      throw new AppError('targetOposicionId es requerido', 400);
+    }
+
+    // Verificar que el tema origen existe
+    const temaOriginal = await prisma.tema.findUnique({
+      where: { id },
+      include: {
+        preguntas: true,
+      },
+    });
+
+    if (!temaOriginal) {
+      throw new AppError('Tema no encontrado', 404);
+    }
+
+    // Verificar que la oposición destino existe
+    const oposicionDestino = await prisma.oposicion.findUnique({
+      where: { id: targetOposicionId },
+    });
+
+    if (!oposicionDestino) {
+      throw new AppError('Oposición destino no encontrada', 404);
+    }
+
+    // Crear nuevo tema en oposición destino
+    const nuevoTema = await prisma.$transaction(async (tx) => {
+      // Crear tema duplicado
+      const temaCopia = await tx.tema.create({
+        data: {
+          nombre: `${temaOriginal.nombre} (copia)`,
+          descripcion: temaOriginal.descripcion,
+          oposicionId: targetOposicionId,
+        },
+      });
+
+      // Copiar todas las preguntas asociadas
+      if (temaOriginal.preguntas.length > 0) {
+        const preguntasCopia = temaOriginal.preguntas.map((p) => ({
+          titulo: p.titulo,
+          enunciado: p.enunciado,
+          opcionA: p.opcionA,
+          opcionB: p.opcionB,
+          opcionC: p.opcionC,
+          opcionD: p.opcionD,
+          respuestaCorrecta: p.respuestaCorrecta,
+          explicacion: p.explicacion,
+          tip: p.tip,
+          dificultad: p.dificultad,
+          status: p.status,
+          temaId: temaCopia.id,
+          imagenUrl: p.imagenUrl,
+        }));
+
+        await tx.pregunta.createMany({
+          data: preguntasCopia,
+        });
+      }
+
+      return temaCopia;
+    });
+
+    logger.info(
+      `✅ Tema copiado: "${temaOriginal.nombre}" → "${nuevoTema.nombre}" (${temaOriginal.preguntas.length} preguntas)`
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `Tema copiado con ${temaOriginal.preguntas.length} preguntas`,
+      data: { tema: nuevoTema },
+    });
+  } catch (error) {
     next(error);
   }
 };

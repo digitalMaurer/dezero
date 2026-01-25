@@ -10,15 +10,21 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Tooltip,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import AccountCircle from '@mui/icons-material/AccountCircle';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import { useAuthStore } from '../store/authStore';
+import { useUIStore } from '../store/uiStore';
 
 export const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const { darkMode, focusMode, toggleDarkMode, toggleFocusMode } = useUIStore();
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [mobileMenuAnchor, setMobileMenuAnchor] = React.useState(null);
 
@@ -91,6 +97,24 @@ export const Navbar = () => {
                 {item.label}
               </Button>
             ))}
+          </Box>
+
+          {/* Theme & Focus Mode Toggles */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 1 }}>
+            <Tooltip title={darkMode ? 'Modo claro' : 'Modo oscuro'}>
+              <IconButton onClick={toggleDarkMode} color="inherit" size="medium">
+                {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Modo concentración">
+              <IconButton 
+                onClick={toggleFocusMode} 
+                color={focusMode ? 'secondary' : 'inherit'}
+                size="medium"
+              >
+                <CenterFocusStrongIcon />
+              </IconButton>
+            </Tooltip>
           </Box>
 
           {/* Mobile Menu */}

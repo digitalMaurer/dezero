@@ -54,6 +54,11 @@ export const temasService = {
     const response = await apiClient.delete(`/temas/${id}`);
     return response.data;
   },
+
+  async copy(id, targetOposicionId) {
+    const response = await apiClient.post(`/temas/${id}/copy`, { targetOposicionId });
+    return response.data;
+  },
 };
 
 export const preguntasService = {

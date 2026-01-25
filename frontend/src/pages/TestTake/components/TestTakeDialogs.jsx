@@ -73,12 +73,17 @@ export const TestTakeDialogs = ({
         ankiSaving={manicomio.ankiSaving}
         ankiGrade={manicomio.ankiGrade}
         ankiError={manicomio.ankiError}
+        difficultyDraft={manicomio.difficultyDraft}
+        difficultyError={manicomio.difficultyError}
+        savingDifficulty={manicomio.savingDifficulty}
         onClose={manicomio.onClose}
         onReport={manicomio.onReport}
         onToggleFavorite={manicomio.onToggleFavorite}
         onSaveTip={manicomio.onSaveTip}
         onTipChange={manicomio.onTipChange}
         onAnkiGrade={manicomio.onAnkiGrade}
+        onDifficultyChange={manicomio.onDifficultyChange}
+        onSaveDifficulty={manicomio.onSaveDifficulty}
         onContinue={manicomio.onContinue}
       />
     </>

@@ -35,6 +35,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { oposicionesService, temasService, preguntasService } from '../services/apiServices';
 
 export const AdminTemas = () => {
@@ -73,6 +75,20 @@ export const AdminTemas = () => {
   const [importTemaId, setImportTemaId] = useState(null);
   const [importText, setImportText] = useState('');
   const [importDificultad, setImportDificultad] = useState('MEDIUM');
+
+  // Dialog para cambiar dificultad masiva
+  const [openChangeDiffDialog, setOpenChangeDiffDialog] = useState(false);
+  const [selectedTemaForChange, setSelectedTemaForChange] = useState(null);
+  const [newDificultad, setNewDificultad] = useState('MEDIUM');
+
+  // Dialog para mover tema a otra oposición
+  const [openMoveTemaDialog, setOpenMoveTemaDialog] = useState(false);
+  const [selectedTemaForMoveOp, setSelectedTemaForMoveOp] = useState(null);
+  const [targetOposicionId, setTargetOposicionId] = useState('');
+
+  // Dialog para copiar tema a otra oposición
+  const [openCopyTemaDialog, setOpenCopyTemaDialog] = useState(false);
+  const [selectedTemaForCopy, setSelectedTemaForCopy] = useState(null);
 
   useEffect(() => {
     loadOposiciones();
@@ -300,6 +316,104 @@ export const AdminTemas = () => {
     }
   };
 
+  // Cambiar dificultad de preguntas seleccionadas
+  const handleChangeDifficulty = (temaId) => {
+    const selected = selectedPreguntasPerTema[temaId] || [];
+    if (selected.length === 0) {
+      setError('Selecciona al menos una pregunta');
+      return;
+    }
+    setSelectedTemaForChange(temaId);
+    setNewDificultad('MEDIUM');
+    setOpenChangeDiffDialog(true);
+  };
+
+  const confirmChangeDifficulty = async () => {
+    const temaId = selectedTemaForChange;
+    const selected = selectedPreguntasPerTema[temaId] || [];
+    if (!temaId || selected.length === 0) {
+      setOpenChangeDiffDialog(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      for (const preguntaId of selected) {
+        await preguntasService.update(preguntaId, { dificultad: newDificultad });
+      }
+      setSuccess(`${selected.length} pregunta(s) actualizada(s) a ${getDifficultyLabel(newDificultad)}`);
+      setSelectedPreguntasPerTema((prev) => ({ ...prev, [temaId]: [] }));
+      setPreguntasPorTema((prev) => ({ ...prev, [temaId]: [] }));
+      setOpenChangeDiffDialog(false);
+      await loadPreguntasByTema(temaId);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Error al cambiar dificultad');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mover tema a otra oposición
+  const handleMoveTemaToOposicion = (tema) => {
+    setSelectedTemaForMoveOp(tema);
+    setTargetOposicionId('');
+    setOpenMoveTemaDialog(true);
+  };
+
+  const confirmMoveTema = async () => {
+    if (!targetOposicionId || !selectedTemaForMoveOp) {
+      setError('Selecciona la oposición destino');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      await temasService.update(selectedTemaForMoveOp.id, { oposicionId: targetOposicionId });
+      setSuccess(`Tema "${selectedTemaForMoveOp.nombre}" movido a otra oposición`);
+      setOpenMoveTemaDialog(false);
+      setTargetOposicionId('');
+      setSelectedTemaForMoveOp(null);
+      await loadTemas(selectedOposicion);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error al mover tema');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Copiar tema a otra oposición
+  const handleCopyTemaToOposicion = (tema) => {
+    setSelectedTemaForCopy(tema);
+    setTargetOposicionId('');
+    setOpenCopyTemaDialog(true);
+  };
+
+  const confirmCopyTema = async () => {
+    if (!targetOposicionId || !selectedTemaForCopy) {
+      setError('Selecciona la oposición destino');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await temasService.copy(selectedTemaForCopy.id, targetOposicionId);
+      setSuccess(response.message || `Tema "${selectedTemaForCopy.nombre}" copiado`);
+      setOpenCopyTemaDialog(false);
+      setTargetOposicionId('');
+      setSelectedTemaForCopy(null);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error al copiar tema');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Importar CSV
   const parseImportText = (text) => {
     const lines = text.trim().split('\n');
@@ -492,6 +606,22 @@ export const AdminTemas = () => {
                       </Button>
                       <Button
                         size="small"
+                        color="secondary"
+                        startIcon={<DriveFileMoveIcon />}
+                        onClick={() => handleMoveTemaToOposicion(tema)}
+                      >
+                        Mover
+                      </Button>
+                      <Button
+                        size="small"
+                        color="info"
+                        startIcon={<ContentCopyIcon />}
+                        onClick={() => handleCopyTemaToOposicion(tema)}
+                      >
+                        Copiar
+                      </Button>
+                      <Button
+                        size="small"
                         color="error"
                         startIcon={<DeleteIcon />}
                         onClick={() => handleDelete(tema.id)}
@@ -553,6 +683,13 @@ export const AdminTemas = () => {
                                     onClick={() => handleMovePreguntas(tema.id)}
                                   >
                                     Mover ({selected.length})
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() => handleChangeDifficulty(tema.id)}
+                                  >
+                                    Cambiar dificultad ({selected.length})
                                   </Button>
                                 </>
                               )}
@@ -673,6 +810,32 @@ export const AdminTemas = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Dialog Cambiar Dificultad */}
+      <Dialog open={openChangeDiffDialog} onClose={() => setOpenChangeDiffDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Cambiar dificultad de preguntas seleccionadas</DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <FormControl fullWidth>
+            <InputLabel>Nueva Dificultad</InputLabel>
+            <Select
+              value={newDificultad}
+              onChange={(e) => setNewDificultad(e.target.value)}
+              label="Nueva Dificultad"
+            >
+              <MenuItem value="EASY">Fácil</MenuItem>
+              <MenuItem value="MEDIUM">Media</MenuItem>
+              <MenuItem value="HARD">Difícil</MenuItem>
+              <MenuItem value="ULTRAHARD">Muy Difícil</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenChangeDiffDialog(false)}>Cancelar</Button>
+          <Button onClick={confirmChangeDifficulty} variant="contained" disabled={loading}>
+            {loading ? 'Aplicando...' : 'Aplicar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Dialog Mover Preguntas */}
       <Dialog open={openMoveDialog} onClose={() => setOpenMoveDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Mover Preguntas a Otro Tema</DialogTitle>
@@ -739,6 +902,68 @@ export const AdminTemas = () => {
           </Button>
           <Button onClick={handleImportCSV} variant="contained" disabled={loading}>
             {loading ? 'Importando...' : 'Importar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Mover Tema a Otra Oposición */}
+      <Dialog open={openMoveTemaDialog} onClose={() => setOpenMoveTemaDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Mover Tema a Otra Oposición</DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Tema: <strong>{selectedTemaForMoveOp?.nombre}</strong>
+          </Typography>
+          <FormControl fullWidth>
+            <InputLabel>Oposición Destino</InputLabel>
+            <Select
+              value={targetOposicionId}
+              onChange={(e) => setTargetOposicionId(e.target.value)}
+              label="Oposición Destino"
+            >
+              {oposiciones
+                .filter((op) => op.id !== selectedOposicion)
+                .map((op) => (
+                  <MenuItem key={op.id} value={op.id}>
+                    {op.nombre}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenMoveTemaDialog(false)}>Cancelar</Button>
+          <Button onClick={confirmMoveTema} variant="contained" disabled={loading}>
+            {loading ? 'Moviendo...' : 'Mover'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Copiar Tema a Otra Oposición */}
+      <Dialog open={openCopyTemaDialog} onClose={() => setOpenCopyTemaDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Copiar Tema a Otra Oposición</DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Se copiará el tema <strong>{selectedTemaForCopy?.nombre}</strong> con todas sus preguntas.
+          </Typography>
+          <FormControl fullWidth>
+            <InputLabel>Oposición Destino</InputLabel>
+            <Select
+              value={targetOposicionId}
+              onChange={(e) => setTargetOposicionId(e.target.value)}
+              label="Oposición Destino"
+            >
+              {oposiciones.map((op) => (
+                <MenuItem key={op.id} value={op.id}>
+                  {op.nombre}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCopyTemaDialog(false)}>Cancelar</Button>
+          <Button onClick={confirmCopyTema} variant="contained" disabled={loading}>
+            {loading ? 'Copiando...' : 'Copiar'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -26,12 +26,17 @@ export const ManicomioResultDialog = ({
   ankiSaving,
   ankiGrade,
   ankiError,
+  difficultyDraft,
+  difficultyError,
+  savingDifficulty,
   onClose,
   onReport,
   onToggleFavorite,
   onSaveTip,
   onTipChange,
   onAnkiGrade,
+  onDifficultyChange,
+  onSaveDifficulty,
   onContinue,
 }) => {
   const pregunta = result?.question;
@@ -132,6 +137,50 @@ export const ManicomioResultDialog = ({
           </Alert>
         )}
 
+        {/* Dificultad (estilo Repaso Anki) */}
+        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+          Dificultad:
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+          <Button
+            variant={(difficultyDraft || 'MEDIUM') === 'EASY' ? 'contained' : 'outlined'}
+            color="success"
+            onClick={() => onDifficultyChange('EASY')}
+            disabled={savingDifficulty}
+          >
+            Fácil
+          </Button>
+          <Button
+            variant={(difficultyDraft || 'MEDIUM') === 'MEDIUM' ? 'contained' : 'outlined'}
+            color="info"
+            onClick={() => onDifficultyChange('MEDIUM')}
+            disabled={savingDifficulty}
+          >
+            Media
+          </Button>
+          <Button
+            variant={(difficultyDraft || 'MEDIUM') === 'HARD' ? 'contained' : 'outlined'}
+            color="warning"
+            onClick={() => onDifficultyChange('HARD')}
+            disabled={savingDifficulty}
+          >
+            Difícil
+          </Button>
+          <Button
+            variant={(difficultyDraft || 'MEDIUM') === 'ULTRAHARD' ? 'contained' : 'outlined'}
+            color="error"
+            onClick={() => onDifficultyChange('ULTRAHARD')}
+            disabled={savingDifficulty}
+          >
+            Muy Difícil
+          </Button>
+        </Box>
+        {difficultyError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {difficultyError}
+          </Alert>
+        )}
+
         {/* Tip editable */}
         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
           Tip (puedes editarlo):
@@ -190,6 +239,13 @@ export const ManicomioResultDialog = ({
             disabled={savingTip}
           >
             {savingTip ? 'Guardando...' : 'Guardar tip'}
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={onSaveDifficulty}
+            disabled={savingDifficulty}
+          >
+            {savingDifficulty ? 'Aplicando...' : 'Guardar dificultad'}
           </Button>
           <Button onClick={onClose}>Cerrar</Button>
           <Button

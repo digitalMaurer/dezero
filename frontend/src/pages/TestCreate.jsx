@@ -21,6 +21,7 @@ import {
   Stack,
 } from '@mui/material';
 import { temasService, testsService, oposicionesService } from '../services/apiServices';
+import { safeSetItem, cleanOldTestData } from '../utils/localStorageManager';
 
 /**
  * MEJORAS FUTURAS:
@@ -175,8 +176,11 @@ export const TestCreate = () => {
       const response = await testsService.createAttempt(testData);
       const attemptId = response.data.attemptId;
 
+      // Limpiar datos antiguos antes de guardar el nuevo test
+      cleanOldTestData();
+
       // Guardar los datos del test en localStorage para acceder en TestTake
-      localStorage.setItem(
+      safeSetItem(
         `test_${attemptId}`,
         JSON.stringify(response.data)
       );

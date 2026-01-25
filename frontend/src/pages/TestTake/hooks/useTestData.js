@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { testsService } from '../../../services/apiServices';
+import { safeSetItem } from '../../../utils/localStorageManager';
 
 const shuffleArray = (arr) => {
   const copy = [...arr];
@@ -50,7 +51,7 @@ export const useTestData = (attemptId) => {
             if (savedAnswers) {
               setRespuestas(JSON.parse(savedAnswers));
             }
-            localStorage.setItem(`test_${attemptId}`, JSON.stringify(normalized));
+            safeSetItem(`test_${attemptId}`, JSON.stringify(normalized));
             setLoading(false);
             return;
           }
@@ -167,7 +168,7 @@ export const useTestData = (attemptId) => {
         }
 
         // Cachear solo si son válidas
-        localStorage.setItem(`test_${attemptId}`, JSON.stringify(normalizedWithShuffle));
+        safeSetItem(`test_${attemptId}`, JSON.stringify(normalizedWithShuffle));
       } catch (err) {
         setError(err.message || 'Error al cargar el test');
         console.error(err);

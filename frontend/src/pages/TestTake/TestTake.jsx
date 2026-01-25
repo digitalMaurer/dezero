@@ -23,6 +23,8 @@ import { QuestionMap } from './components/QuestionMap';
 import { QuestionActions } from './components/QuestionActions';
 import { TestTakeDialogs } from './components/TestTakeDialogs';
 import { TestActionsBar } from './components/TestActionsBar';
+import { useUIStore } from '../../store/uiStore';
+import { safeSetItem } from '../../utils/localStorageManager';
 
 /**
  * MEJORAS FUTURAS:
@@ -46,6 +48,7 @@ import { TestActionsBar } from './components/TestActionsBar';
 export const TestTake = () => {
   const { attemptId } = useParams();
   const navigate = useNavigate();
+  const { focusMode } = useUIStore();
 
   // Hooks personalizados para la lógica
   const {
@@ -141,11 +144,16 @@ export const TestTake = () => {
     ankiSaving,
     ankiGrade,
     ankiError,
+    difficultyDraft,
+    setDifficultyDraft,
+    savingDifficulty,
+    difficultyError,
     handleReportClick,
     handleSubmitReport,
     handleToggleFavorite,
     handleSaveTip,
     handleManicomioAnkiGrade,
+    handleSaveDifficulty,
   } = useQuestionMeta({
     attemptId,
     pendingManicomioResult,
@@ -164,7 +172,7 @@ export const TestTake = () => {
   // Guardar respuestas en localStorage
   useEffect(() => {
     if (!attemptId) return;
-    localStorage.setItem(`test_answers_${attemptId}`, JSON.stringify(respuestas));
+    safeSetItem(`test_answers_${attemptId}`, JSON.stringify(respuestas));
   }, [attemptId, respuestas]);
 
   const progress = useMemo(() => {
@@ -282,7 +290,35 @@ export const TestTake = () => {
           </Alert>
         )}
 
-        <Grid container spacing={3}>
+        {/* Wrapper para modo concentración */}
+        <Box
+          sx={{
+            position: 'relative',
+            ...(focusMode && {
+              '&::before': {
+                content: '""',
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                zIndex: 1,
+                pointerEvents: 'none',
+              },
+            }),
+          }}
+        >
+          <Grid 
+            container 
+            spacing={3}
+            sx={{
+              ...(focusMode && {
+                position: 'relative',
+                zIndex: 2,
+              }),
+            }}
+          >
           {/* Columna principal con la pregunta */}
           <Grid item xs={12} md={isManicomio ? 12 : 8}>
             <Paper elevation={3} sx={{ p: 4 }}>
@@ -346,7 +382,8 @@ export const TestTake = () => {
               />
             </Grid>
           )}
-        </Grid>
+          </Grid>
+        </Box>
 
         <TestTakeDialogs
           review={{
@@ -391,12 +428,17 @@ export const TestTake = () => {
             ankiSaving,
             ankiGrade,
             ankiError,
+            difficultyDraft,
+            difficultyError,
+            savingDifficulty,
             onClose: () => setPendingManicomioResult(null),
             onReport: handleReportClick,
             onToggleFavorite: handleToggleFavorite,
             onSaveTip: handleSaveTip,
             onTipChange: setTipDraft,
             onAnkiGrade: handleManicomioAnkiGrade,
+            onDifficultyChange: setDifficultyDraft,
+            onSaveDifficulty: handleSaveDifficulty,
             onContinue: handleManicomioContinue,
           }}
         />

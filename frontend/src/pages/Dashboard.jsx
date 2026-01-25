@@ -10,15 +10,44 @@ import {
   Card,
   CardContent,
   CardActions,
+  IconButton,
+  Tooltip,
+  Snackbar,
+  Alert,
 } from '@mui/material';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
+import { clearAllTestData, getStorageInfo } from '../utils/localStorageManager';
 
 export const Dashboard = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const [snackbar, setSnackbar] = React.useState({ open: false, message: '', severity: 'info' });
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleClearCache = () => {
+    try {
+      const info = getStorageInfo();
+      const count = clearAllTestData();
+      setSnackbar({
+        open: true,
+        message: `Limpiados ${count} tests (${info.estimatedSize})`,
+        severity: 'success',
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Error al limpiar caché',
+        severity: 'error',
+      });
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
   };
 
   const menuItems = [
@@ -66,13 +95,24 @@ export const Dashboard = () => {
               {user?.email}
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleLogout}
-          >
-            Cerrar Sesión
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Tooltip title="Limpiar caché de tests antiguos">
+              <IconButton 
+                color="warning" 
+                onClick={handleClearCache}
+                size="small"
+              >
+                <DeleteSweepIcon />
+              </IconButton>
+            </Tooltip>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleLogout}
+            >
+              Cerrar Sesión
+            </Button>
+          </Box>
         </Box>
 
         <Grid container spacing={3}>
@@ -104,6 +144,17 @@ export const Dashboard = () => {
             </Grid>
           ))}
         </Grid>
+
+        <Snackbar 
+          open={snackbar.open} 
+          autoHideDuration={4000} 
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </Container>
   );
