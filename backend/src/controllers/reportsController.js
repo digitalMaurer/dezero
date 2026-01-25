@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 export const createQuestionReport = async (req, res, next) => {
   try {
     const { preguntaId } = req.params;
-    const { mensaje } = req.body;
+    const { mensaje, motivo = 'OTRO' } = req.body;
     const userId = req.user.id;
 
     if (!preguntaId) {
@@ -34,7 +34,7 @@ export const createQuestionReport = async (req, res, next) => {
       data: {
         preguntaId,
         userId,
-        motivo: 'REPORTE_USUARIO',
+        motivo,
         descripcion: mensaje,
         estado: 'PENDIENTE',
       },
@@ -67,7 +67,7 @@ export const createQuestionReport = async (req, res, next) => {
       },
     });
 
-    logger.info(`✅ Reporte creado: ${report.id} para pregunta ${preguntaId}`);
+    logger.info(`✅ Reporte creado: ${report.id} para pregunta ${preguntaId} (motivo: ${motivo})`);
 
     res.status(201).json({
       success: true,

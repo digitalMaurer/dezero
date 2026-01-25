@@ -61,7 +61,20 @@ export const useQuestionMeta = ({
   }, []);
 
   const handleSubmitReport = useCallback(
-    async (mensaje) => {
+    async (reportData) => {
+      // reportData puede ser string (legacy) o objeto { motivo, mensaje }
+      let motivo, mensaje;
+      
+      if (typeof reportData === 'string') {
+        // Legacy: solo mensaje
+        motivo = 'OTRO';
+        mensaje = reportData;
+      } else {
+        // Nuevo formato
+        motivo = reportData.motivo;
+        mensaje = reportData.mensaje;
+      }
+
       if (!mensaje?.trim() || !reportingQuestion) {
         return;
       }
@@ -70,6 +83,7 @@ export const useQuestionMeta = ({
 
       try {
         await preguntasService.reportQuestion(reportingQuestion.id, {
+          motivo,
           mensaje,
           attemptId,
         });
