@@ -2,6 +2,8 @@ import React from 'react';
 import { Box, Typography, Paper, IconButton, Tooltip, LinearProgress, Chip } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import ViewAgendaIcon from '@mui/icons-material/ViewAgenda';
 
 export const TestHeader = ({
   currentQuestionIndex,
@@ -13,6 +15,8 @@ export const TestHeader = ({
   isPaused,
   onTogglePause,
   progress,
+  viewMode,
+  onToggleViewMode,
 }) => {
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -41,6 +45,18 @@ export const TestHeader = ({
         </Box>
 
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {/* Toggle vista lista/individual (solo si NO es MANICOMIO) */}
+          {!isManicomio && (
+            <Tooltip title={viewMode === 'list' ? 'Cambiar a vista individual' : 'Cambiar a vista de lista'}>
+              <IconButton
+                onClick={onToggleViewMode}
+                sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected' } }}
+              >
+                {viewMode === 'list' ? <ViewAgendaIcon /> : <ViewListIcon />}
+              </IconButton>
+            </Tooltip>
+          )}
+
           <Paper
             sx={{
               p: 2,

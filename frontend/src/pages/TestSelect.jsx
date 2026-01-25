@@ -54,7 +54,9 @@ export const TestSelect = () => {
       setLoading(true);
       const response = await oposicionesService.getAll();
       const data = response.data?.oposiciones || response.oposiciones || [];
-      setOposiciones(Array.isArray(data) ? data : []);
+      // Filtrar solo oposiciones visibles para usuarios
+      const oposicionesVisibles = data.filter(op => op.visible !== false);
+      setOposiciones(Array.isArray(oposicionesVisibles) ? oposicionesVisibles : []);
     } catch (err) {
       setError('Error al cargar las oposiciones');
       console.error(err);
@@ -254,33 +256,10 @@ export const TestSelect = () => {
 
             <Grid item xs={12} sm={6} md={3}>
               <Card
-                onClick={() => handleModeChange(null, 'REPASO')}
+                onClick={() => handleModeChange(null, 'ALEATORIO')}
                 sx={{
                   cursor: 'pointer',
-                  border: mode === 'REPASO' ? '3px solid #ed6c02' : '1px solid #ddd',
-                  transition: 'all 0.3s',
-                  '&:hover': { transform: 'scale(1.05)', boxShadow: 4 },
-                  height: '100%',
-                }}
-              >
-                <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                  <BookIcon sx={{ fontSize: 50, color: '#ed6c02', mb: 2 }} />
-                  <Typography variant="h6" gutterBottom>
-                    📖 Repaso
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Preguntas pendientes de revisar
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Card
-                onClick={() => handleModeChange(null, 'FILTRADO')}
-                sx={{
-                  cursor: 'pointer',
-                  border: mode === 'FILTRADO' ? '3px solid #d32f2f' : '1px solid #ddd',
+                  border: mode === 'ALEATORIO' ? '3px solid #d32f2f' : '1px solid #ddd',
                   transition: 'all 0.3s',
                   '&:hover': { transform: 'scale(1.05)', boxShadow: 4 },
                   height: '100%',
@@ -289,10 +268,10 @@ export const TestSelect = () => {
                 <CardContent sx={{ textAlign: 'center', py: 3 }}>
                   <FilterListIcon sx={{ fontSize: 50, color: '#d32f2f', mb: 2 }} />
                   <Typography variant="h6" gutterBottom>
-                    🎯 Filtrado
+                    🎯 Test Personalizado
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    Filtros avanzados (errores, dificultad, etc.)
+                    Personaliza con filtros y opciones avanzadas
                   </Typography>
                 </CardContent>
               </Card>
@@ -326,22 +305,12 @@ export const TestSelect = () => {
           <Box sx={{ mt: 3 }}>
             {mode === 'ALEATORIO' && (
               <Alert severity="info">
-                <strong>Modo Aleatorio:</strong> Las preguntas se seleccionan aleatoriamente de los temas que elijas. Ideal para práctica general.
+                <strong>Test Personalizado:</strong> Selecciona temas y personaliza tu test con filtros avanzados opcionales. Ideal para práctica general o enfocada.
               </Alert>
             )}
             {mode === 'ANKI' && (
               <Alert severity="success">
                 <strong>Modo Anki (Repetición Espaciada):</strong> Solo verás preguntas que necesiten repaso según el algoritmo Anki. Las preguntas mal respondidas aparecen más frecuentemente.
-              </Alert>
-            )}
-            {mode === 'REPASO' && (
-              <Alert severity="warning">
-                <strong>Modo Repaso:</strong> Preguntas vencidas o que requieren revisión prioritaria.
-              </Alert>
-            )}
-            {mode === 'FILTRADO' && (
-              <Alert severity="error">
-                <strong>Modo Filtrado Avanzado:</strong> En el siguiente paso podrás elegir filtros específicos como "más mal respondidas", "última respuesta errónea", "nunca respondidas", etc.
               </Alert>
             )}
             {mode === 'MANICOMIO' && (
@@ -405,7 +374,7 @@ export const TestSelect = () => {
                     variant="contained"
                     onClick={() => handleSelectOposicion(oposicion.id)}
                   >
-                    Crear Test {mode === 'ALEATORIO' ? '🎲' : mode === 'ANKI' ? '🔄' : mode === 'REPASO' ? '📖' : '🎯'}
+                    Crear Test {mode === 'ALEATORIO' ? '🎲' : mode === 'ANKI' ? '🔄' : '🎯'}
                   </Button>
                 </CardActions>
               </Card>

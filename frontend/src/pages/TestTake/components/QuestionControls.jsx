@@ -11,6 +11,7 @@ export const QuestionControls = ({
   onFinish,
   onManicomioAnswer,
   loading,
+  viewMode,
 }) => {
   if (isManicomio) {
     return (
@@ -30,6 +31,7 @@ export const QuestionControls = ({
   }
 
   const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
+  const isSingleView = viewMode === 'single';
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mt: 4 }}>
@@ -51,7 +53,11 @@ export const QuestionControls = ({
           ✅ Finalizar Test
         </Button>
       ) : (
-        <Button variant="contained" onClick={onNext}>
+        <Button 
+          variant="contained" 
+          onClick={onNext}
+          disabled={isSingleView && !hasAnswer}
+        >
           Siguiente ➡️
         </Button>
       )}

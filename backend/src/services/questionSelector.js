@@ -62,21 +62,6 @@ const selectors = {
 
     return prisma.pregunta.findMany({ where });
   },
-  REPASO: async ({ prisma, oposicionId, temasSeleccionados, dificultad }) => {
-    const where = buildBaseWhere({ oposicionId, temasSeleccionados, dificultad });
-
-    const preguntas = await prisma.pregunta.findMany({
-      where,
-      include: {
-        statistics: true,
-      },
-    });
-
-    return preguntas.filter((p) => {
-      const stats = p.statistics;
-      return !stats || stats.vecesRespondida === 0 || stats.porcentajeAcierto < 70;
-    });
-  },
   SIMULACRO_EXAMEN: async ({ prisma, temasSeleccionados, dificultad, cantidad }) => {
     if (!temasSeleccionados || temasSeleccionados.length === 0) {
       throw new AppError('Selecciona al menos un tema para el simulacro', 400);

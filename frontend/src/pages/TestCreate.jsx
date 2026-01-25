@@ -19,7 +19,11 @@ import {
   Checkbox,
   Chip,
   Stack,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { temasService, testsService, oposicionesService } from '../services/apiServices';
 import { safeSetItem, cleanOldTestData } from '../utils/localStorageManager';
 
@@ -43,7 +47,8 @@ export const TestCreate = () => {
   const oposicionIdFromUrl = searchParams.get('oposicionId');
   const modeFromUrl = searchParams.get('mode');
 
-  const [step, setStep] = useState(modeFromUrl ? 2 : 1); // Si viene mode por URL, saltamos al paso 2
+  // Paso inicial: si viene mode por URL, paso 2. Si no, paso 1
+  const [step, setStep] = useState(modeFromUrl ? 2 : 1);
   const [temas, setTemas] = useState([]);
   const [oposiciones, setOposiciones] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -89,9 +94,11 @@ export const TestCreate = () => {
     try {
       setLoading(true);
       const response = await oposicionesService.getAll();
-      const todasOposiciones = response.data;
+      const todasOposiciones = response.data?.oposiciones || response.data || [];
       // Filtrar solo oposiciones visibles para usuarios
-      const oposicionesVisibles = todasOposiciones.filter(op => op.visible !== false);
+      const oposicionesVisibles = Array.isArray(todasOposiciones) 
+        ? todasOposiciones.filter(op => op.visible !== false)
+        : [];
       setOposiciones(oposicionesVisibles);
     } catch (err) {
       setError('Error al cargar las oposiciones');
@@ -102,13 +109,14 @@ export const TestCreate = () => {
   };
 
   const handleOposicionSelect = (oposicionId) => {
-    setFormData((prev) => ({
-      ...prev,
+    const newFormData = {
+      ...formData,
       oposicionId,
       temaIds: [], // Limpiar temas al cambiar oposición
-    }));
+    };
+    setFormData(newFormData);
     // Si es FAVORITOS, saltamos al paso 4. Si no, al paso 3 (temas)
-    setStep(formData.mode === 'FAVORITOS' ? 4 : 3);
+    setStep(newFormData.mode === 'FAVORITOS' ? 4 : 3);
   };
 
   const handleTemaToggle = (temaId) => {
@@ -163,8 +171,8 @@ export const TestCreate = () => {
         testData.dificultad = formData.dificultad;
       }
 
-      // Agregar filtros si está en modo FILTRADO
-      if (formData.mode === 'FILTRADO') {
+      // Agregar filtros si está en modo ALEATORIO o MANICOMIO y tiene filtros configurados
+      if ((formData.mode === 'ALEATORIO' || formData.mode === 'MANICOMIO') && (formData.filtroTipo || formData.filtroOrden !== 'ALEATORIO')) {
         if (formData.filtroTipo) {
           testData.filtroTipo = formData.filtroTipo;
         }
@@ -220,23 +228,12 @@ export const TestCreate = () => {
   const testModes = [
     {
       id: 'ALEATORIO',
-      icon: '🎲',
-      title: 'Aleatorio',
-      description: 'Preguntas aleatorias de los temas seleccionados',
+      icon: '�',
+      title: 'Test Personalizado',
+      description: 'Personaliza tu test con filtros y opciones',
     },
     {
-      id: 'FILTRADO',
-      icon: '🎯',
-      title: 'Filtrado',
-      description: 'Filtra por erróneas, nunca vistas, dificultad, etc.',
-    },
-    {
-      id: 'REPASO',
-      icon: '📚',
-      title: 'Repaso',
-      description: 'Repaso general de todas las preguntas',
-    },
-    {
+
       id: 'ANKI',
       icon: '🧠',
       title: 'Anki',
@@ -290,12 +287,22 @@ export const TestCreate = () => {
               },
             }}
             onClick={() => {
+              const newMode = mode.id;
               setFormData((prev) => ({
                 ...prev,
-                mode: mode.id,
-                cantidad: mode.id === 'SIMULACRO_EXAMEN' ? '100' : '',
+                mode: newMode,
+                cantidad: newMode === 'SIMULACRO_EXAMEN' ? '100' : '',
               }));
-              setStep(formData.oposicionId ? 3 : 2);
+              // Si es FAVORITOS, ir directo al paso 4
+              // Si ya tiene oposicionId (viene de Oposiciones.jsx), ir al paso 3 (temas)
+              // Si no, ir al paso 2 (seleccionar oposición)
+              if (newMode === 'FAVORITOS') {
+                setStep(4);
+              } else if (oposicionIdFromUrl) {
+                setStep(3);
+              } else {
+                setStep(2);
+              }
             }}
           >
             <Box sx={{ textAlign: 'center' }}>
@@ -591,67 +598,72 @@ export const TestCreate = () => {
             </Alert>
           )}
 
-          {/* Filtros avanzados - FILTRADO */}
-          {formData.mode === 'FILTRADO' && (
-            <>
-              <Typography variant="h6" sx={{ mt: 2 }}>
-                🎯 Filtros Avanzados
-              </Typography>
+          {/* Filtros avanzados opcionales - Solo para Test Personalizado (ALEATORIO) */}
+          {formData.mode === 'ALEATORIO' && (
+            <Accordion sx={{ mt: 2 }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="h6">
+                  🎯 Filtros Avanzados (opcional)
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <FormControl fullWidth>
+                    <InputLabel>Tipo de Filtro</InputLabel>
+                    <Select
+                      name="filtroTipo"
+                      value={formData.filtroTipo}
+                      onChange={handleChange}
+                      label="Tipo de Filtro"
+                    >
+                      <MenuItem value="">
+                        <em>Sin filtro específico</em>
+                      </MenuItem>
+                      <MenuItem value="MAS_ERRONEAS">
+                        ❌ Más veces mal respondidas
+                      </MenuItem>
+                      <MenuItem value="ULTIMA_ERRONEA">
+                        🔴 Última respuesta errónea
+                      </MenuItem>
+                      <MenuItem value="NUNCA_RESPONDIDAS">
+                        ⭕ Nunca respondidas
+                      </MenuItem>
+                      <MenuItem value="PEOR_PORCENTAJE">
+                        📉 Peor porcentaje de acierto
+                      </MenuItem>
+                      <MenuItem value="MAS_RESPONDIDAS">
+                        🔄 Más veces respondidas
+                      </MenuItem>
+                      <MenuItem value="MENOS_RESPONDIDAS">
+                        ⚪ Menos veces respondidas
+                      </MenuItem>
+                      <MenuItem value="SOLO_INCORRECTAS">
+                        ⛔ Solo incorrectas alguna vez
+                      </MenuItem>
+                      <MenuItem value="REVISION_PENDIENTE">
+                        ⏰ Revisión pendiente (Anki)
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
 
-              <FormControl fullWidth>
-                <InputLabel>Tipo de Filtro</InputLabel>
-                <Select
-                  name="filtroTipo"
-                  value={formData.filtroTipo}
-                  onChange={handleChange}
-                  label="Tipo de Filtro"
-                >
-                  <MenuItem value="">
-                    <em>Sin filtro específico</em>
-                  </MenuItem>
-                  <MenuItem value="MAS_ERRONEAS">
-                    ❌ Más veces mal respondidas
-                  </MenuItem>
-                  <MenuItem value="ULTIMA_ERRONEA">
-                    🔴 Última respuesta errónea
-                  </MenuItem>
-                  <MenuItem value="NUNCA_RESPONDIDAS">
-                    ⭕ Nunca respondidas
-                  </MenuItem>
-                  <MenuItem value="PEOR_PORCENTAJE">
-                    📉 Peor porcentaje de acierto
-                  </MenuItem>
-                  <MenuItem value="MAS_RESPONDIDAS">
-                    🔄 Más veces respondidas
-                  </MenuItem>
-                  <MenuItem value="MENOS_RESPONDIDAS">
-                    ⚪ Menos veces respondidas
-                  </MenuItem>
-                  <MenuItem value="SOLO_INCORRECTAS">
-                    ⛔ Solo incorrectas alguna vez
-                  </MenuItem>
-                  <MenuItem value="REVISION_PENDIENTE">
-                    ⏰ Revisión pendiente (Anki)
-                  </MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth>
-                <InputLabel>Orden de preguntas</InputLabel>
-                <Select
-                  name="filtroOrden"
-                  value={formData.filtroOrden}
-                  onChange={handleChange}
-                  label="Orden de preguntas"
-                >
-                  <MenuItem value="ALEATORIO">🎲 Aleatorio</MenuItem>
-                  <MenuItem value="DIFICULTAD_ASC">📈 Dificultad ascendente (fácil → difícil)</MenuItem>
-                  <MenuItem value="DIFICULTAD_DESC">📉 Dificultad descendente (difícil → fácil)</MenuItem>
-                  <MenuItem value="MAS_ERRORES">❌ Más errores primero</MenuItem>
-                  <MenuItem value="MENOS_ERRORES">✅ Menos errores primero</MenuItem>
-                </Select>
-              </FormControl>
-            </>
+                  <FormControl fullWidth>
+                    <InputLabel>Orden de preguntas</InputLabel>
+                    <Select
+                      name="filtroOrden"
+                      value={formData.filtroOrden}
+                      onChange={handleChange}
+                      label="Orden de preguntas"
+                    >
+                      <MenuItem value="ALEATORIO">🎲 Aleatorio</MenuItem>
+                      <MenuItem value="DIFICULTAD_ASC">📈 Dificultad ascendente (fácil → difícil)</MenuItem>
+                      <MenuItem value="DIFICULTAD_DESC">📉 Dificultad descendente (difícil → fácil)</MenuItem>
+                      <MenuItem value="MAS_ERRORES">❌ Más errores primero</MenuItem>
+                      <MenuItem value="MENOS_ERRORES">✅ Menos errores primero</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </AccordionDetails>
+            </Accordion>
           )}
 
           {/* Streak Target - MANICOMIO */}
@@ -680,6 +692,72 @@ export const TestCreate = () => {
               <Alert severity="warning">
                 ⚠️ Necesitas {formData.streakTarget} respuestas correctas seguidas para completar el test
               </Alert>
+
+              {/* Filtros avanzados opcionales para Manicomio */}
+              <Accordion sx={{ mt: 2 }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="h6">
+                    🎯 Filtros Avanzados (opcional)
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <FormControl fullWidth>
+                      <InputLabel>Tipo de Filtro</InputLabel>
+                      <Select
+                        name="filtroTipo"
+                        value={formData.filtroTipo}
+                        onChange={handleChange}
+                        label="Tipo de Filtro"
+                      >
+                        <MenuItem value="">
+                          <em>Sin filtro específico</em>
+                        </MenuItem>
+                        <MenuItem value="MAS_ERRONEAS">
+                          ❌ Más veces mal respondidas
+                        </MenuItem>
+                        <MenuItem value="ULTIMA_ERRONEA">
+                          🔴 Última respuesta errónea
+                        </MenuItem>
+                        <MenuItem value="NUNCA_RESPONDIDAS">
+                          ⭕ Nunca respondidas
+                        </MenuItem>
+                        <MenuItem value="PEOR_PORCENTAJE">
+                          📉 Peor porcentaje de acierto
+                        </MenuItem>
+                        <MenuItem value="MAS_RESPONDIDAS">
+                          🔄 Más veces respondidas
+                        </MenuItem>
+                        <MenuItem value="MENOS_RESPONDIDAS">
+                          ⚪ Menos veces respondidas
+                        </MenuItem>
+                        <MenuItem value="SOLO_INCORRECTAS">
+                          ⛔ Solo incorrectas alguna vez
+                        </MenuItem>
+                        <MenuItem value="REVISION_PENDIENTE">
+                          ⏰ Revisión pendiente (Anki)
+                        </MenuItem>
+                      </Select>
+                    </FormControl>
+
+                    <FormControl fullWidth>
+                      <InputLabel>Orden de preguntas</InputLabel>
+                      <Select
+                        name="filtroOrden"
+                        value={formData.filtroOrden}
+                        onChange={handleChange}
+                        label="Orden de preguntas"
+                      >
+                        <MenuItem value="ALEATORIO">🎲 Aleatorio</MenuItem>
+                        <MenuItem value="DIFICULTAD_ASC">📈 Dificultad ascendente (fácil → difícil)</MenuItem>
+                        <MenuItem value="DIFICULTAD_DESC">📉 Dificultad descendente (difícil → fácil)</MenuItem>
+                        <MenuItem value="MAS_ERRORES">❌ Más errores primero</MenuItem>
+                        <MenuItem value="MENOS_ERRORES">✅ Menos errores primero</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
             </>
           )}
 
@@ -704,7 +782,7 @@ export const TestCreate = () => {
                 • Objetivo: <strong>{formData.streakTarget} correctas seguidas</strong>
               </Typography>
             )}
-            {formData.mode === 'FILTRADO' && formData.filtroTipo && (
+            {(formData.mode === 'ALEATORIO' || formData.mode === 'MANICOMIO') && formData.filtroTipo && (
               <Typography variant="caption" display="block">
                 • Filtro: <strong>{formData.filtroTipo}</strong>
               </Typography>

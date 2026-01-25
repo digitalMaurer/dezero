@@ -9,7 +9,12 @@ import {
   Grid,
   Alert,
   Paper,
+  IconButton,
+  Tooltip,
+  Typography,
 } from '@mui/material';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import ViewAgendaIcon from '@mui/icons-material/ViewAgenda';
 import { useTestData } from './hooks/useTestData';
 import { useManicomioLogic } from './hooks/useManicomioLogic';
 import { useManicomioFlow } from './hooks/useManicomioFlow';
@@ -63,6 +68,7 @@ export const TestTake = () => {
 
   // Estado local
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [viewMode, setViewMode] = useState('list'); // 'list' o 'single'
   const [error, setError] = useState(null);
 
   // Hook específico para MANICOMIO
@@ -211,6 +217,10 @@ export const TestTake = () => {
     setCurrentQuestionIndex(index);
   };
 
+  const toggleViewMode = () => {
+    setViewMode(prev => prev === 'list' ? 'single' : 'list');
+  };
+
   useEffect(() => {
     if (attemptError) {
       setError(attemptError);
@@ -268,6 +278,8 @@ export const TestTake = () => {
           isPaused={isPaused}
           onTogglePause={togglePause}
           progress={progress}
+          viewMode={viewMode}
+          onToggleViewMode={toggleViewMode}
         />
 
         <TestActionsBar
@@ -319,66 +331,132 @@ export const TestTake = () => {
               }),
             }}
           >
-          {/* Columna principal con la pregunta */}
-          <Grid item xs={12} md={isManicomio ? 12 : 8}>
-            <Paper elevation={3} sx={{ p: 4 }}>
-              {/* Mostrar la pregunta */}
-              <QuestionDisplay
-                question={currentQuestion}
-                respuesta={currentRespuesta}
-                onRespuestaChange={handleAnswerChange}
-                disabled={manicomioLogic.loading || (isManicomio && pendingManicomioResult)}
-              />
+          {/* VISTA INDIVIDUAL (MANICOMIO o modo single) */}
+          {(isManicomio || viewMode === 'single') && (
+            <>
+              {/* Columna principal con la pregunta - FULLWIDTH */}
+              <Grid item xs={12}>
+                <Paper elevation={3} sx={{ p: 4 }}>
+                  {/* Mostrar la pregunta */}
+                  <QuestionDisplay
+                    question={currentQuestion}
+                    respuesta={currentRespuesta}
+                    onRespuestaChange={handleAnswerChange}
+                    disabled={manicomioLogic.loading || (isManicomio && pendingManicomioResult)}
+                  />
 
-              {/* Feedback: Ya respondiste esta pregunta (MANICOMIO) */}
-              {isManicomio && pendingManicomioResult && (
-                <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
-                  ✅ Ya has respondido a esta pregunta. Revisa el resultado abajo y continúa cuando estés listo.
-                </Alert>
-              )}
+                  {/* Feedback: Ya respondiste esta pregunta (MANICOMIO) */}
+                  {isManicomio && pendingManicomioResult && (
+                    <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
+                      ✅ Ya has respondido a esta pregunta. Revisa el resultado abajo y continúa cuando estés listo.
+                    </Alert>
+                  )}
 
-              {/* Feedback de MANICOMIO */}
-              {isManicomio && (
-                <ManicomioFeedback
-                  feedback={pendingManicomioResult || manicomioLogic.feedback}
-                  streakCurrent={manicomioLogic.streakCurrent}
-                  streakMax={manicomioLogic.streakMax}
-                  streakTarget={testData.streakTarget}
-                  correctasTotales={manicomioCorrectas}
-                />
-              )}
+                  {/* Feedback de MANICOMIO */}
+                  {isManicomio && (
+                    <ManicomioFeedback
+                      feedback={pendingManicomioResult || manicomioLogic.feedback}
+                      streakCurrent={manicomioLogic.streakCurrent}
+                      streakMax={manicomioLogic.streakMax}
+                      streakTarget={testData.streakTarget}
+                      correctasTotales={manicomioCorrectas}
+                    />
+                  )}
 
-              {/* Controles de navegación */}
-              <QuestionControls
-                isManicomio={isManicomio}
-                currentQuestionIndex={currentQuestionIndex}
-                totalQuestions={testData.preguntas.length}
-                hasAnswer={!!currentRespuesta}
-                onPrevious={handlePrevious}
-                onNext={handleNext}
-                onFinish={handleFinishClick}
-                onManicomioAnswer={handleManicomioAnswerClick}
-                loading={manicomioLogic.loading}
-              />
+                  {/* Controles de navegación */}
+                  <QuestionControls
+                    isManicomio={isManicomio}
+                    currentQuestionIndex={currentQuestionIndex}
+                    totalQuestions={testData.preguntas.length}
+                    hasAnswer={!!currentRespuesta}
+                    onPrevious={handlePrevious}
+                    onNext={handleNext}
+                    onFinish={handleFinishClick}
+                    onManicomioAnswer={handleManicomioAnswerClick}
+                    loading={manicomioLogic.loading}
+                    viewMode={viewMode}
+                  />
 
-              {/* Acciones de pregunta (reportar, favorito) */}
-              <QuestionActions
-                currentQuestion={currentQuestion}
-                isFavorite={favorites[currentQuestion?.id]}
-                onReport={handleReportClick}
-                onToggleFavorite={handleToggleFavorite}
-              />
-            </Paper>
-          </Grid>
+                  {/* Acciones de pregunta (reportar, favorito) */}
+                  <QuestionActions
+                    currentQuestion={currentQuestion}
+                    isFavorite={favorites[currentQuestion?.id]}
+                    onReport={handleReportClick}
+                    onToggleFavorite={handleToggleFavorite}
+                  />
+                </Paper>
+              </Grid>
+              {/* NO hay sidebar en vista individual */}
+            </>
+          )}
 
-          {/* Sidebar con mapa de preguntas (solo en no-MANICOMIO) */}
-          {!isManicomio && (
+          {/* VISTA DE LISTA (solo NO-MANICOMIO) */}
+          {!isManicomio && viewMode === 'list' && (
+            <Grid item xs={12} md={8}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {testData.preguntas.map((pregunta, index) => (
+                  <Paper 
+                    key={pregunta.id} 
+                    id={`question-${index}`}
+                    elevation={3} 
+                    sx={{ p: 4 }}
+                  >
+                    <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', mb: 2 }}>
+                      Pregunta {index + 1} de {testData.preguntas.length}
+                    </Typography>
+                    
+                    <QuestionDisplay
+                      question={pregunta}
+                      respuesta={respuestas[pregunta.id] || ''}
+                      onRespuestaChange={(value) => {
+                        setRespuestas((prev) => ({ ...prev, [pregunta.id]: value }));
+                        safeSetItem(`attempt_${attemptId}_respuestas`, JSON.stringify({ ...respuestas, [pregunta.id]: value }));
+                      }}
+                      disabled={false}
+                    />
+
+                    <QuestionActions
+                      currentQuestion={pregunta}
+                      isFavorite={favorites[pregunta.id]}
+                      onReport={() => {
+                        setReportingQuestion(pregunta);
+                        setOpenReportDialog(true);
+                      }}
+                      onToggleFavorite={() => handleToggleFavorite(pregunta.id)}
+                    />
+                  </Paper>
+                ))}
+              </Box>
+
+              {/* Botón finalizar al final de la lista */}
+              <Paper elevation={3} sx={{ p: 4, mt: 3, textAlign: 'center' }}>
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={handleFinishClick}
+                  disabled={submitting}
+                >
+                  🏁 Finalizar Test
+                </Button>
+              </Paper>
+            </Grid>
+          )}
+
+          {/* Sidebar siempre visible en vista lista */}
+          {!isManicomio && viewMode === 'list' && (
             <Grid item xs={12} md={4}>
               <QuestionMap
                 preguntas={testData.preguntas}
                 respuestas={respuestas}
                 currentQuestionIndex={currentQuestionIndex}
-                onGoToQuestion={handleGoToQuestion}
+                onGoToQuestion={(index) => {
+                  setCurrentQuestionIndex(index);
+                  // Scroll a la pregunta
+                  const element = document.getElementById(`question-${index}`);
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
               />
             </Grid>
           )}
