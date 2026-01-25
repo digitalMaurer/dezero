@@ -5,12 +5,15 @@ import path from 'path';
 import {
   getPreguntas,
   getPregunta,
+  getSimilarPreguntas,
   createPregunta,
   updatePregunta,
   deletePregunta,
   generateRandomTest,
   bulkUpdateTema,
   uploadPreguntaImage,
+  markDuplicateFalsePositive,
+  mergePreguntas,
 } from '../controllers/preguntasController.js';
 import { authMiddleware, adminMiddleware } from '../middleware/auth.js';
 
@@ -47,7 +50,10 @@ const upload = multer({
 
 router.get('/', getPreguntas);
 router.get('/random', authMiddleware, generateRandomTest);
+router.post('/duplicates/false-positive', authMiddleware, adminMiddleware, markDuplicateFalsePositive);
+router.post('/duplicates/merge', authMiddleware, adminMiddleware, mergePreguntas);
 router.get('/:id', getPregunta);
+router.get('/:id/similar', authMiddleware, adminMiddleware, getSimilarPreguntas);
 router.post('/', authMiddleware, adminMiddleware, createPregunta);
 router.put('/:id', authMiddleware, adminMiddleware, updatePregunta);
 router.delete('/:id', authMiddleware, adminMiddleware, deletePregunta);

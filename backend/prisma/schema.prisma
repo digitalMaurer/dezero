@@ -84,6 +84,11 @@ model Pregunta {
   dificultad String @default("MEDIUM") // EASY, MEDIUM, HARD, ULTRAHARD
   status    String @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
   imageUrl  String?
+  // Duplicados
+  duplicateStatus String @default("ACTIVE") // ACTIVE, DUPLICATED
+  masterPreguntaId String?
+  masterPregunta   Pregunta? @relation("PreguntaMaster", fields: [masterPreguntaId], references: [id])
+  duplicateChildren Pregunta[] @relation("PreguntaMaster")
   
   // Campos Anki para repetición espaciada
   easeFactor Float @default(2.5) // Factor de facilidad (default 2.5 según SM-2)
@@ -103,8 +108,40 @@ model Pregunta {
   questionReports QuestionReport[]
   statistics QuestionStatistic[]
   favoritos FavoritePregunta[]
+  mergeHistoryMaster PreguntaMergeHistory[] @relation("MergeMaster")
+  falsePositiveA DuplicateFalsePositive[] @relation("DuplicateA")
+  falsePositiveB DuplicateFalsePositive[] @relation("DuplicateB")
 
   @@map("preguntas")
+}
+
+model PreguntaMergeHistory {
+  id String @id @default(cuid())
+
+  masterPreguntaId String
+  masterPregunta   Pregunta @relation("MergeMaster", fields: [masterPreguntaId], references: [id])
+
+  duplicateIds String   // JSON array de IDs unificadas
+  mergeStrategy String   // KEEP_MASTER, KEEP_BEST, etc.
+  mergedBy      String   // userId admin
+  mergedAt      DateTime @default(now())
+
+  @@map("pregunta_merge_history")
+}
+
+model DuplicateFalsePositive {
+  id String @id @default(cuid())
+
+  preguntaAId String
+  preguntaA   Pregunta @relation("DuplicateA", fields: [preguntaAId], references: [id], onDelete: Cascade)
+
+  preguntaBId String
+  preguntaB   Pregunta @relation("DuplicateB", fields: [preguntaBId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([preguntaAId, preguntaBId])
+  @@map("duplicate_false_positives")
 }
 
 model Test {

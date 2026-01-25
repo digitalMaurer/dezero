@@ -67,6 +67,18 @@ export const useAdminPreguntasLogic = () => {
   const [filtroTemaPreguntas, setFiltroTemaPreguntas] = useState('');
   const [temasParaFiltro, setTemasParaFiltro] = useState([]);
 
+  // Duplicados
+  const [duplicateTemaFilter, setDuplicateTemaFilter] = useState('');
+  const [duplicateCandidates, setDuplicateCandidates] = useState([]);
+  const [duplicateBaseId, setDuplicateBaseId] = useState('');
+  const [duplicateBasePregunta, setDuplicateBasePregunta] = useState(null);
+  const [duplicateSimilar, setDuplicateSimilar] = useState([]);
+  const [duplicateThreshold, setDuplicateThreshold] = useState(0.4);
+  const [duplicateLimit, setDuplicateLimit] = useState(20);
+  const [duplicateLoading, setDuplicateLoading] = useState(false);
+  const [mergeSelection, setMergeSelection] = useState([]);
+  const [mergeMasterId, setMergeMasterId] = useState('');
+
   useEffect(() => {
     loadOposiciones();
     loadAllTemasForFilter();
@@ -100,6 +112,13 @@ export const useAdminPreguntasLogic = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOposicionImage]);
+
+  useEffect(() => {
+    if (tabValue === 3) {
+      loadDuplicateCandidates();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabValue, duplicateTemaFilter]);
 
   useEffect(() => {
     const loadTargetTemas = async () => {
@@ -253,6 +272,25 @@ export const useAdminPreguntasLogic = () => {
       setPreguntas([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDuplicateCandidates = async () => {
+    try {
+      setDuplicateLoading(true);
+      const params = { limit: 200 };
+      if (duplicateTemaFilter) {
+        params.temaId = duplicateTemaFilter;
+      }
+      const response = await preguntasService.getAll(params);
+      const data = response.data?.preguntas || response.preguntas || [];
+      setDuplicateCandidates(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setDuplicateCandidates([]);
+      setError('Error al cargar preguntas para duplicados');
+    } finally {
+      setDuplicateLoading(false);
     }
   };
 
@@ -568,6 +606,83 @@ export const useAdminPreguntasLogic = () => {
     setExpandedReports((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
+  const handleFetchSimilarDuplicates = async () => {
+    if (!duplicateBaseId) {
+      setError('Selecciona la pregunta base');
+      return;
+    }
+
+    try {
+      setDuplicateLoading(true);
+      const response = await preguntasService.getSimilar(duplicateBaseId, {
+        threshold: duplicateThreshold,
+        limit: duplicateLimit,
+      });
+      const base = response.data?.base || response.base || null;
+      const similar = response.data?.similar || response.similar || [];
+      setDuplicateBasePregunta(base);
+      setDuplicateSimilar(Array.isArray(similar) ? similar : []);
+      setMergeMasterId(base?.id || duplicateBaseId);
+      setMergeSelection(
+        (Array.isArray(similar) ? similar : [])
+          .map((s) => s.pregunta?.id)
+          .filter(Boolean)
+      );
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setDuplicateSimilar([]);
+      setMergeSelection([]);
+      setError(err.response?.data?.message || 'Error al buscar duplicados');
+    } finally {
+      setDuplicateLoading(false);
+    }
+  };
+
+  const handleMarkFalsePositive = async (otherId) => {
+    if (!duplicateBaseId || !otherId) return;
+    try {
+      setDuplicateLoading(true);
+      await preguntasService.markDuplicateFalsePositive(duplicateBaseId, otherId);
+      setDuplicateSimilar((prev) => prev.filter((s) => s.pregunta?.id !== otherId));
+      setSuccess('Marcado como no duplicada');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || 'No se pudo marcar como no duplicada');
+    } finally {
+      setDuplicateLoading(false);
+    }
+  };
+
+  const handleMergeDuplicates = async () => {
+    const duplicatesToMerge = mergeSelection.filter((id) => id && id !== mergeMasterId);
+
+    if (!mergeMasterId || duplicatesToMerge.length === 0) {
+      setError('Selecciona la pregunta maestra y al menos un duplicado');
+      return;
+    }
+
+    try {
+      setDuplicateLoading(true);
+      await preguntasService.mergeDuplicates({
+        masterPreguntaId: mergeMasterId,
+        duplicateIds: duplicatesToMerge,
+        mergeStrategy: 'KEEP_MASTER',
+      });
+      setSuccess('Preguntas unificadas');
+      setDuplicateSimilar((prev) => prev.filter((s) => !duplicatesToMerge.includes(s.pregunta?.id)));
+      setMergeSelection([]);
+      setTimeout(() => setSuccess(null), 3000);
+      loadPreguntas();
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Error al unificar preguntas');
+    } finally {
+      setDuplicateLoading(false);
+    }
+  };
+
   return {
     // UI state
     tabValue,
@@ -648,6 +763,24 @@ export const useAdminPreguntasLogic = () => {
     setFiltroTemaPreguntas,
     temasParaFiltro,
 
+    // Duplicados
+    duplicateTemaFilter,
+    setDuplicateTemaFilter,
+    duplicateCandidates,
+    duplicateBaseId,
+    setDuplicateBaseId,
+    duplicateBasePregunta,
+    duplicateSimilar,
+    duplicateThreshold,
+    setDuplicateThreshold,
+    duplicateLimit,
+    setDuplicateLimit,
+    duplicateLoading,
+    mergeSelection,
+    setMergeSelection,
+    mergeMasterId,
+    setMergeMasterId,
+
     // Handlers
     handleBulkMove,
     handleImport,
@@ -663,5 +796,9 @@ export const useAdminPreguntasLogic = () => {
     toggleOne,
     handleImageFileChange,
     loadReports,
+    loadDuplicateCandidates,
+    handleFetchSimilarDuplicates,
+    handleMarkFalsePositive,
+    handleMergeDuplicates,
   };
 };

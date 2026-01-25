@@ -1,6 +1,7 @@
 import pkg from '@prisma/client';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../utils/logger.js';
+import { findSimilarQuestions } from '../services/questionSimilarity.js';
 
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
@@ -161,6 +162,131 @@ export const createPregunta = async (req, res, next) => {
       message: 'Pregunta creada exitosamente',
       data: { pregunta },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Obtener preguntas similares (detección de duplicados) - solo admin
+export const getSimilarPreguntas = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { threshold = 0.4, limit = 20 } = req.query;
+
+    const { base, similar } = await findSimilarQuestions({
+      prisma,
+      preguntaId: id,
+      threshold: Number(threshold) || 0.4,
+      limit: Number(limit) || 20,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        base,
+        similar,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Marcar par como falso positivo (no es duplicado) - admin
+export const markDuplicateFalsePositive = async (req, res, next) => {
+  try {
+    const { preguntaAId, preguntaBId } = req.body;
+
+    if (!preguntaAId || !preguntaBId) {
+      throw new AppError('preguntaAId y preguntaBId son requeridos', 400);
+    }
+    if (preguntaAId === preguntaBId) {
+      throw new AppError('Los IDs no pueden ser iguales', 400);
+    }
+
+    const sorted = [preguntaAId, preguntaBId].sort();
+
+    await prisma.duplicateFalsePositive.upsert({
+      where: {
+        preguntaAId_preguntaBId: {
+          preguntaAId: sorted[0],
+          preguntaBId: sorted[1],
+        },
+      },
+      create: {
+        preguntaAId: sorted[0],
+        preguntaBId: sorted[1],
+      },
+      update: {},
+    });
+
+    res.json({ success: true, message: 'Marcado como no duplicado (false positive)' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Unificar preguntas: mantener una maestra y marcar resto como duplicadas - admin
+export const mergePreguntas = async (req, res, next) => {
+  try {
+    const { masterPreguntaId, duplicateIds = [], mergeStrategy = 'KEEP_MASTER' } = req.body;
+    const userId = req.user?.id || 'admin';
+
+    if (!masterPreguntaId || !Array.isArray(duplicateIds) || duplicateIds.length === 0) {
+      throw new AppError('masterPreguntaId y duplicateIds son requeridos', 400);
+    }
+    if (duplicateIds.includes(masterPreguntaId)) {
+      throw new AppError('La maestra no puede estar en la lista de duplicadas', 400);
+    }
+
+    const uniqueDuplicates = [...new Set(duplicateIds)];
+
+    await prisma.$transaction(async (tx) => {
+      const master = await tx.pregunta.findUnique({ where: { id: masterPreguntaId } });
+      if (!master) {
+        throw new AppError('Pregunta maestra no encontrada', 404);
+      }
+
+      const duplicates = await tx.pregunta.findMany({
+        where: { id: { in: uniqueDuplicates } },
+      });
+
+      if (duplicates.length !== uniqueDuplicates.length) {
+        throw new AppError('Alguna pregunta duplicada no existe', 404);
+      }
+
+      // Asegurar que la maestra quede activa
+      await tx.pregunta.update({
+        where: { id: masterPreguntaId },
+        data: {
+          duplicateStatus: 'ACTIVE',
+          masterPreguntaId: null,
+        },
+      });
+
+      // Marcar duplicadas
+      await tx.pregunta.updateMany({
+        where: { id: { in: uniqueDuplicates } },
+        data: {
+          duplicateStatus: 'DUPLICATED',
+          masterPreguntaId,
+        },
+      });
+
+      // Registrar historial
+      await tx.preguntaMergeHistory.create({
+        data: {
+          masterPreguntaId,
+          duplicateIds: JSON.stringify(uniqueDuplicates),
+          mergeStrategy,
+          mergedBy: userId,
+        },
+      });
+
+      // TODO: Reasignar test_questions / attempt_responses a la maestra evitando conflictos de único.
+    });
+
+    res.json({ success: true, message: 'Preguntas unificadas', data: { masterPreguntaId, duplicateIds: uniqueDuplicates } });
   } catch (error) {
     next(error);
   }

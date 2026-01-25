@@ -87,6 +87,28 @@ export const preguntasService = {
     return response.data;
   },
 
+  async getSimilar(id, params = {}) {
+    const response = await apiClient.get(`/preguntas/${id}/similar`, { params });
+    return response.data;
+  },
+
+  async markDuplicateFalsePositive(preguntaAId, preguntaBId) {
+    const response = await apiClient.post('/preguntas/duplicates/false-positive', {
+      preguntaAId,
+      preguntaBId,
+    });
+    return response.data;
+  },
+
+  async mergeDuplicates({ masterPreguntaId, duplicateIds, mergeStrategy = 'KEEP_MASTER' }) {
+    const response = await apiClient.post('/preguntas/duplicates/merge', {
+      masterPreguntaId,
+      duplicateIds,
+      mergeStrategy,
+    });
+    return response.data;
+  },
+
   async bulkUpdateTema(ids, temaId) {
     const response = await apiClient.post('/preguntas/bulk-update-tema', { ids, temaId });
     return response.data;

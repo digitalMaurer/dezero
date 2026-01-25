@@ -6,6 +6,7 @@ import { AdminPreguntasImportImage } from './AdminPreguntasImportImage';
 import { AdminPreguntasManage } from './AdminPreguntasManage';
 import { AdminPreguntasEditDialog } from './AdminPreguntasEditDialog';
 import { AdminPreguntasReportDialog } from './AdminPreguntasReportDialog';
+import { AdminPreguntasDuplicates } from './AdminPreguntasDuplicates';
 import { useAdminPreguntasLogic } from '../hooks/useAdminPreguntasLogic';
 
 export const AdminPreguntas = () => {
@@ -71,6 +72,27 @@ export const AdminPreguntas = () => {
     filtroTemaPreguntas,
     setFiltroTemaPreguntas,
     temasParaFiltro,
+    // Duplicados
+    duplicateTemaFilter,
+    setDuplicateTemaFilter,
+    duplicateCandidates,
+    duplicateBaseId,
+    setDuplicateBaseId,
+    duplicateBasePregunta,
+    duplicateSimilar,
+    duplicateThreshold,
+    setDuplicateThreshold,
+    duplicateLimit,
+    setDuplicateLimit,
+    duplicateLoading,
+    mergeSelection,
+    setMergeSelection,
+    mergeMasterId,
+    setMergeMasterId,
+    loadDuplicateCandidates,
+    handleFetchSimilarDuplicates,
+    handleMarkFalsePositive,
+    handleMergeDuplicates,
     handleBulkMove,
     handleImport,
     handleCreateWithImage,
@@ -110,6 +132,7 @@ export const AdminPreguntas = () => {
             <Tab label="📥 Importar Preguntas" />
             <Tab label="🖼️ Importar con Imagen" />
             <Tab label="📋 Gestionar Preguntas" />
+            <Tab label="🔁 Duplicados" />
             <Tab label={`🚩 Reportes (${reports.length})`} />
           </Tabs>
         </Box>
@@ -177,6 +200,32 @@ export const AdminPreguntas = () => {
         )}
 
         {tabValue === 3 && (
+          <AdminPreguntasDuplicates
+            temasParaFiltro={temasParaFiltro}
+            duplicateTemaFilter={duplicateTemaFilter}
+            setDuplicateTemaFilter={setDuplicateTemaFilter}
+            duplicateCandidates={duplicateCandidates}
+            duplicateBaseId={duplicateBaseId}
+            setDuplicateBaseId={setDuplicateBaseId}
+            duplicateBasePregunta={duplicateBasePregunta}
+            duplicateSimilar={duplicateSimilar}
+            duplicateThreshold={duplicateThreshold}
+            setDuplicateThreshold={setDuplicateThreshold}
+            duplicateLimit={duplicateLimit}
+            setDuplicateLimit={setDuplicateLimit}
+            duplicateLoading={duplicateLoading}
+            mergeSelection={mergeSelection}
+            setMergeSelection={setMergeSelection}
+            mergeMasterId={mergeMasterId}
+            setMergeMasterId={setMergeMasterId}
+            reloadCandidates={loadDuplicateCandidates}
+            handleFetchSimilar={handleFetchSimilarDuplicates}
+            handleMarkFalsePositive={handleMarkFalsePositive}
+            handleMerge={handleMergeDuplicates}
+          />
+        )}
+
+        {tabValue === 4 && (
           <AdminPreguntasReports
             reports={reports}
             loadingReports={loadingReports}
