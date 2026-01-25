@@ -54,6 +54,7 @@ export const TestCreate = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [autoStepped, setAutoStepped] = useState(false);
 
   const [formData, setFormData] = useState({
     mode: modeFromUrl || '',
@@ -64,6 +65,7 @@ export const TestCreate = () => {
     streakTarget: 30,
     filtroTipo: '',
     filtroOrden: 'ALEATORIO',
+    ankiScope: 'PENDIENTES',
   });
 
   useEffect(() => {
@@ -76,6 +78,17 @@ export const TestCreate = () => {
       loadTemas();
     }
   }, [step, formData.oposicionId, formData.mode]);
+
+  // Auto-avanzar pasos cuando vienen mode y oposicionId por URL (flujo "repasar ahora")
+  useEffect(() => {
+    if (autoStepped) return;
+    if (!formData.mode || !formData.oposicionId) return;
+    if (step !== 2) return;
+
+    const targetStep = formData.mode === 'FAVORITOS' ? 4 : 3;
+    setStep(targetStep);
+    setAutoStepped(true);
+  }, [autoStepped, formData.mode, formData.oposicionId, step]);
 
   const loadTemas = async () => {
     try {
@@ -169,6 +182,10 @@ export const TestCreate = () => {
 
       if (formData.dificultad) {
         testData.dificultad = formData.dificultad;
+      }
+
+      if (formData.mode === 'ANKI') {
+        testData.ankiScope = formData.ankiScope || 'PENDIENTES';
       }
 
       // Agregar filtros si está en modo ALEATORIO o MANICOMIO y tiene filtros configurados
@@ -292,6 +309,7 @@ export const TestCreate = () => {
                 ...prev,
                 mode: newMode,
                 cantidad: newMode === 'SIMULACRO_EXAMEN' ? '100' : '',
+                ankiScope: 'PENDIENTES',
               }));
               // Si es FAVORITOS, ir directo al paso 4
               // Si ya tiene oposicionId (viene de Oposiciones.jsx), ir al paso 3 (temas)
@@ -596,6 +614,22 @@ export const TestCreate = () => {
             <Alert severity="info">
               🧠 Se cargarán solo las preguntas pendientes de revisar según tu sistema de repetición espaciada
             </Alert>
+          )}
+
+          {formData.mode === 'ANKI' && (
+            <FormControl fullWidth>
+              <InputLabel>Ámbito de repaso</InputLabel>
+              <Select
+                name="ankiScope"
+                value={formData.ankiScope}
+                onChange={handleChange}
+                label="Ámbito de repaso"
+              >
+                <MenuItem value="PENDIENTES">Solo pendientes (dueDate hoy o vencidas)</MenuItem>
+                <MenuItem value="PENDIENTES_Y_NUEVAS">Pendientes + nunca revisadas</MenuItem>
+                <MenuItem value="NUEVAS">Solo nunca revisadas</MenuItem>
+              </Select>
+            </FormControl>
           )}
 
           {/* Filtros avanzados opcionales - Solo para Test Personalizado (ALEATORIO) */}

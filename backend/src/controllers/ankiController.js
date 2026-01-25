@@ -1,10 +1,11 @@
-import { PrismaClient } from '@prisma/client';
+import pkg from '@prisma/client';
 import {
   getAnkiStateForGrade,
   getDueQuestions,
   getReviewStats
 } from '../utils/ankiAlgorithm.js';
 
+const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
 /**

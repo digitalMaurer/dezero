@@ -1,8 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import pkg from '@prisma/client';
 import { generateToken, hashPassword, comparePassword } from '../utils/jwt.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../utils/logger.js';
 
+const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
 export const register = async (req, res, next) => {

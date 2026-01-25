@@ -66,6 +66,7 @@ export const TestTakeDialogs = ({
         open={manicomio.open}
         result={manicomio.result}
         streakTarget={manicomio.streakTarget}
+        isAnkiMode={manicomio.isAnkiMode}
         favorites={manicomio.favorites}
         tipDraft={manicomio.tipDraft}
         tipError={manicomio.tipError}

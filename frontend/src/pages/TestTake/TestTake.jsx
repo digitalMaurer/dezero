@@ -9,12 +9,8 @@ import {
   Grid,
   Alert,
   Paper,
-  IconButton,
-  Tooltip,
   Typography,
 } from '@mui/material';
-import ViewListIcon from '@mui/icons-material/ViewList';
-import ViewAgendaIcon from '@mui/icons-material/ViewAgenda';
 import { useTestData } from './hooks/useTestData';
 import { useManicomioLogic } from './hooks/useManicomioLogic';
 import { useManicomioFlow } from './hooks/useManicomioFlow';
@@ -81,8 +77,11 @@ export const TestTake = () => {
 
   // Derivados usados por varios hooks
   const isManicomio = testData?.mode === 'MANICOMIO';
+  const isAnkiMode = testData?.mode === 'ANKI';
+  const isSequential = isManicomio || isAnkiMode;
   const currentQuestion = testData?.preguntas?.[currentQuestionIndex];
   const currentRespuesta = currentQuestion ? respuestas[currentQuestion.id] || '' : '';
+  const effectiveViewMode = isSequential ? 'single' : viewMode;
 
   // Timer y estimaciones
   const {
@@ -129,6 +128,9 @@ export const TestTake = () => {
     attemptId,
     currentQuestion,
     currentRespuesta,
+    currentQuestionIndex,
+    testData,
+    isAnkiMode,
     setRespuestas,
     setTestData,
     setCurrentQuestionIndex,
@@ -218,8 +220,15 @@ export const TestTake = () => {
   };
 
   const toggleViewMode = () => {
+    if (isSequential) return; // Vista fija en flujos secuenciales
     setViewMode(prev => prev === 'list' ? 'single' : 'list');
   };
+
+  useEffect(() => {
+    if (isSequential && viewMode !== 'single') {
+      setViewMode('single');
+    }
+  }, [isSequential, viewMode]);
 
   useEffect(() => {
     if (attemptError) {
@@ -278,7 +287,7 @@ export const TestTake = () => {
           isPaused={isPaused}
           onTogglePause={togglePause}
           progress={progress}
-          viewMode={viewMode}
+          viewMode={effectiveViewMode}
           onToggleViewMode={toggleViewMode}
         />
 
@@ -332,7 +341,7 @@ export const TestTake = () => {
             }}
           >
           {/* VISTA INDIVIDUAL (MANICOMIO o modo single) */}
-          {(isManicomio || viewMode === 'single') && (
+          {(isSequential || effectiveViewMode === 'single') && (
             <>
               {/* Columna principal con la pregunta - FULLWIDTH */}
               <Grid item xs={12}>
@@ -342,11 +351,11 @@ export const TestTake = () => {
                     question={currentQuestion}
                     respuesta={currentRespuesta}
                     onRespuestaChange={handleAnswerChange}
-                    disabled={manicomioLogic.loading || (isManicomio && pendingManicomioResult)}
+                    disabled={manicomioLogic.loading || (isSequential && pendingManicomioResult)}
                   />
 
                   {/* Feedback: Ya respondiste esta pregunta (MANICOMIO) */}
-                  {isManicomio && pendingManicomioResult && (
+                  {isSequential && pendingManicomioResult && (
                     <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
                       ✅ Ya has respondido a esta pregunta. Revisa el resultado abajo y continúa cuando estés listo.
                     </Alert>
@@ -374,7 +383,8 @@ export const TestTake = () => {
                     onFinish={handleFinishClick}
                     onManicomioAnswer={handleManicomioAnswerClick}
                     loading={manicomioLogic.loading}
-                    viewMode={viewMode}
+                    viewMode={effectiveViewMode}
+                    sequentialMode={isSequential}
                   />
 
                   {/* Acciones de pregunta (reportar, favorito) */}
@@ -391,7 +401,7 @@ export const TestTake = () => {
           )}
 
           {/* VISTA DE LISTA (solo NO-MANICOMIO) */}
-          {!isManicomio && viewMode === 'list' && (
+          {!isSequential && effectiveViewMode === 'list' && (
             <Grid item xs={12} md={8}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {testData.preguntas.map((pregunta, index) => (
@@ -443,7 +453,7 @@ export const TestTake = () => {
           )}
 
           {/* Sidebar siempre visible en vista lista */}
-          {!isManicomio && viewMode === 'list' && (
+          {!isSequential && effectiveViewMode === 'list' && (
             <Grid item xs={12} md={4}>
               <QuestionMap
                 preguntas={testData.preguntas}
@@ -499,6 +509,7 @@ export const TestTake = () => {
             open: !!pendingManicomioResult,
             result: pendingManicomioResult,
             streakTarget: testData.streakTarget,
+            isAnkiMode,
             favorites,
             tipDraft,
             tipError,

@@ -162,6 +162,10 @@ model TestAttempt {
   streakCurrent Int @default(0)
   streakMax Int @default(0)
   streakTarget Int @default(30) // Objetivo de aciertos seguidos para terminar (especialmente en Manicomio)
+
+  // Cola de preguntas para modos secuenciales (MANICOMIO)
+  queue       String? @default("[]")
+  queueCursor Int     @default(0)
   
   tiempoInicio DateTime
   tiempoFin    DateTime?

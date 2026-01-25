@@ -1,5 +1,6 @@
 import { AppError } from '../middleware/errorHandler.js';
 import { getPreguntasConFiltro, ordenarPreguntas } from '../utils/filtroPreguntas.js';
+import { shuffleArray } from '../utils/shuffleUtils.js';
 
 // Validar que una pregunta tenga todos los campos requeridos
 export const isPreguntaValid = (pregunta) => {
@@ -40,6 +41,28 @@ const limitPreguntas = (preguntas, cantidad) => {
   return preguntas.slice(0, parsed);
 };
 
+const buildAnkiWhere = (baseWhere, hoy, ankiScope = 'PENDIENTES') => {
+  if (ankiScope === 'NUEVAS') {
+    return {
+      ...baseWhere,
+      dueDate: null,
+    };
+  }
+
+  if (ankiScope === 'PENDIENTES_Y_NUEVAS') {
+    return {
+      ...baseWhere,
+      OR: [{ dueDate: null }, { dueDate: { lte: hoy } }],
+    };
+  }
+
+  // PENDIENTES por defecto
+  return {
+    ...baseWhere,
+    dueDate: { lte: hoy },
+  };
+};
+
 const selectors = {
   MANICOMIO: async ({ prisma, oposicionId, temasSeleccionados, dificultad }) => {
     const where = buildBaseWhere({ oposicionId, temasSeleccionados, dificultad });
@@ -53,14 +76,12 @@ const selectors = {
     const preguntas = await getPreguntasConFiltro(temasSeleccionados, filtroTipo, dificultad, userId);
     return ordenarPreguntas(preguntas, filtroOrden);
   },
-  ANKI: async ({ prisma, oposicionId, temasSeleccionados, dificultad }) => {
+  ANKI: async ({ prisma, oposicionId, temasSeleccionados, dificultad, ankiScope }) => {
     const hoy = new Date();
-    const where = {
-      ...buildBaseWhere({ oposicionId, temasSeleccionados, dificultad }),
-      OR: [{ dueDate: null }, { dueDate: { lte: hoy } }],
-    };
-
-    return prisma.pregunta.findMany({ where });
+    const baseWhere = buildBaseWhere({ oposicionId, temasSeleccionados, dificultad });
+    const where = buildAnkiWhere(baseWhere, hoy, ankiScope);
+    const preguntas = await prisma.pregunta.findMany({ where });
+    return shuffleArray(preguntas);
   },
   SIMULACRO_EXAMEN: async ({ prisma, temasSeleccionados, dificultad, cantidad }) => {
     if (!temasSeleccionados || temasSeleccionados.length === 0) {
@@ -154,6 +175,7 @@ export const selectQuestionsForAttempt = async ({
   filtroTipo,
   filtroOrden = 'ALEATORIO',
   userId,
+  ankiScope,
 }) => {
   const normalizedMode = mode || 'ALEATORIO';
   const selector = selectors[normalizedMode] || selectors.ALEATORIO;
@@ -167,6 +189,7 @@ export const selectQuestionsForAttempt = async ({
     filtroTipo,
     filtroOrden,
     userId,
+    ankiScope,
   });
 
   const preguntasValidas = preguntas.filter(isPreguntaValid);

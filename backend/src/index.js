@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
+import pkg from '@prisma/client';
 import authRoutes from './routes/auth.js';
 import oposicionesRoutes from './routes/oposiciones.js';
 import temasRoutes from './routes/temas.js';
@@ -18,6 +18,7 @@ import { logger } from './utils/logger.js';
 dotenv.config();
 
 const app = express();
+const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
 // Middleware

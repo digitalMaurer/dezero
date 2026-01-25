@@ -3,6 +3,7 @@ import { Box, Button } from '@mui/material';
 
 export const QuestionControls = ({
   isManicomio,
+  sequentialMode = false,
   currentQuestionIndex,
   totalQuestions,
   hasAnswer,
@@ -13,7 +14,7 @@ export const QuestionControls = ({
   loading,
   viewMode,
 }) => {
-  if (isManicomio) {
+  if (sequentialMode || isManicomio) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 4 }}>
         <Button

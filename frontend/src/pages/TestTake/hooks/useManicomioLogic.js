@@ -90,10 +90,14 @@ export const useManicomioLogic = (attemptId, testData, respuestas, currentQuesti
           finished: false,
           answered: true,
           esCorrecta: data.esCorrecta,
+          respuestaCorrecta: data.respuestaCorrecta,
+          textoRespuestaUsuario: data.textoRespuestaUsuario,
+          textoRespuestaCorrecta: data.textoRespuestaCorrecta,
+          preguntaActual: data.preguntaActual,
           remaining: data.remaining,
           message: data.esCorrecta 
-            ? '✅ ¡Respuesta correcta!' 
-            : '❌ Respuesta incorrecta, la racha se reinicia',
+            ? '✅ ¡Respuesta correcta!'
+            : '❌ Respuesta incorrecta',
         };
       } catch (err) {
         const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Error al enviar la respuesta';

@@ -1,9 +1,11 @@
-import { PrismaClient } from '@prisma/client';
+import pkg from '@prisma/client';
 import { AppError } from '../../middleware/errorHandler.js';
 import { logger } from '../../utils/logger.js';
 import { shuffleQuestionOptions } from '../../utils/shuffleUtils.js';
 import { selectQuestionsForAttempt } from '../../services/questionSelector.js';
+import { shuffleArray } from '../../utils/shuffleUtils.js';
 
+const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
 // Crear un intento de test
@@ -18,7 +20,8 @@ export const createTestAttempt = async (req, res, next) => {
       mode = 'ALEATORIO',
       filtroTipo,
       filtroOrden = 'ALEATORIO',
-      streakTarget = 30  // Para modo Manicomio
+      streakTarget = 30,  // Para modo Manicomio
+      ankiScope = 'PENDIENTES'
     } = req.body;
     const userId = req.user.id;
 
@@ -39,7 +42,13 @@ export const createTestAttempt = async (req, res, next) => {
       filtroTipo,
       filtroOrden,
       userId,
+      ankiScope,
     });
+
+    // Cola inicial para MANICOMIO: barajar las preguntas para evitar orden repetitivo
+    const initialQueue = mode === 'MANICOMIO'
+      ? shuffleArray(preguntasSeleccionadas.map((p) => p.id))
+      : [];
 
     // Crear el test
     const { test, attempt } = await prisma.$transaction(async (tx) => {
@@ -79,6 +88,8 @@ export const createTestAttempt = async (req, res, next) => {
           streakMax: 0,
           streakTarget: mode === 'MANICOMIO' ? streakTarget : 30, // Usar streakTarget en Manicomio
           tiempoInicio: new Date(),
+          queue: mode === 'MANICOMIO' ? JSON.stringify(initialQueue) : null,
+          queueCursor: 0,
         },
       });
 

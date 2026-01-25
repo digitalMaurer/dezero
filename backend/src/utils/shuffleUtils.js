@@ -72,3 +72,14 @@ export const shuffleQuestionOptions = (pregunta) => {
     _shuffleMap: shuffled.map((opt) => opt.letter),
   };
 };
+
+// Mezcla genérica de arrays (sin mutar el original)
+export const shuffleArray = (items = []) => {
+  if (!Array.isArray(items)) return [];
+  const arr = [...items];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};

@@ -5,6 +5,9 @@ export const useManicomioFlow = ({
   attemptId,
   currentQuestion,
   currentRespuesta,
+  currentQuestionIndex,
+  testData,
+  isAnkiMode,
   setRespuestas,
   setTestData,
   setCurrentQuestionIndex,
@@ -72,20 +75,26 @@ export const useManicomioFlow = ({
       return;
     }
 
+    // Para MANICOMIO el backend devuelve nextQuestion; para ANKI la tomamos del array cargado
+    const nextQuestionFromList = testData?.preguntas?.[currentQuestionIndex + 1];
+
     setPendingManicomioResult({
       ...result,
+      nextQuestion: result.nextQuestion || nextQuestionFromList,
       question: result.preguntaActual || currentQuestion,
-      respuestaUsuario: currentRespuesta,
+      respuestaUsuario: result.respuestaUsuario || currentRespuesta,
     });
   }, [
     attemptId,
     currentQuestion,
+    currentQuestionIndex,
     currentRespuesta,
     manicomioLogic,
     navigate,
     setCurrentQuestionIndex,
     setRespuestas,
     setTestData,
+    testData,
   ]);
 
   const handleManicomioContinue = useCallback(() => {
@@ -111,7 +120,14 @@ export const useManicomioFlow = ({
         console.warn('[MANICOMIO] testData es null');
         return prev;
       }
-      const newPreguntas = [...(prev.preguntas || []), nextQuestionData];
+
+      if (isAnkiMode) {
+        return prev; // ANKI ya trae todas las preguntas cargadas
+      }
+
+      const preguntas = prev.preguntas || [];
+      const exists = preguntas.some((q) => q.id === nextQuestionData.id);
+      const newPreguntas = exists ? preguntas : [...preguntas, nextQuestionData];
       console.debug('[MANICOMIO] testData actualizado. Preguntas totales:', newPreguntas.length);
       return { ...prev, preguntas: newPreguntas };
     });
@@ -135,6 +151,7 @@ export const useManicomioFlow = ({
     console.debug('[MANICOMIO] ===== handleManicomioContinue FIN =====');
   }, [
     currentQuestion?.id,
+    isAnkiMode,
     pendingManicomioResult,
     setCurrentQuestionIndex,
     setRespuestas,

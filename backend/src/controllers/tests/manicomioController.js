@@ -1,12 +1,15 @@
-import { PrismaClient } from '@prisma/client';
+import pkg from '@prisma/client';
 import { AppError } from '../../middleware/errorHandler.js';
 import { logger } from '../../utils/logger.js';
 import { shuffleQuestionOptions } from '../../utils/shuffleUtils.js';
 import { isPreguntaValid } from '../../services/questionSelector.js';
+import { processAnswer } from '../../services/answerProcessor.js';
+import { updateAnkiAttempt, updateManicomioAttempt } from '../../services/attemptUpdater.js';
 
+const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
-// Responder pregunta en modo MANICOMIO (racha de 30 correctas)
+// Responder pregunta en modo MANICOMIO (racha de 30 correctas) o ANKI secuencial
 export const answerQuestionManicomio = async (req, res, next) => {
   try {
     const { id } = req.params; // attemptId
@@ -31,6 +34,7 @@ export const answerQuestionManicomio = async (req, res, next) => {
             },
           },
         },
+        respuestas: true,
       },
     });
 
@@ -42,7 +46,10 @@ export const answerQuestionManicomio = async (req, res, next) => {
       throw new AppError('Este test ya ha finalizado', 400);
     }
 
-    if (attempt.mode !== 'MANICOMIO') {
+    const isManicomioMode = attempt.mode === 'MANICOMIO';
+    const isAnkiMode = attempt.mode === 'ANKI';
+
+    if (!isManicomioMode && !isAnkiMode) {
       throw new AppError('Este endpoint es solo para modo MANICOMIO', 400);
     }
 
@@ -71,13 +78,40 @@ export const answerQuestionManicomio = async (req, res, next) => {
       },
     });
 
+    // Preparar cola actual
+    const attemptQueue = attempt.queue;
+    let queue = Array.isArray(attemptQueue)
+      ? [...attemptQueue]
+      : (typeof attemptQueue === 'string' && attemptQueue.trim() !== ''
+        ? (() => { try { return JSON.parse(attemptQueue); } catch (_) { return []; } })()
+        : []);
+    // Si sigue sin ser array (doble string), intentar parsear una vez más
+    if (!Array.isArray(queue) && typeof queue === 'string') {
+      try {
+        queue = JSON.parse(queue);
+      } catch (_) {
+        queue = [];
+      }
+    }
+    if (!Array.isArray(queue)) queue = [];
+    let cursor = attempt.queueCursor || 0;
+
     // En MANICOMIO, permitimos reintentos sin restricciones
     // Si ya existe respuesta, simplemente la actualizaremos
 
-    // Recalcular el shuffle con el mismo seed para obtener respuestaCorrecta remapeada
-    const shuffled = shuffleQuestionOptions(pregunta);
-    const respuestaCorrectaRemapeada = shuffled.respuestaCorrecta;
-    const esCorrecta = respuestaCorrectaRemapeada === respuestaUsuario;
+    const {
+      esCorrecta,
+      respuestaCorrectaRemapeada,
+      textoRespuestaUsuario,
+      textoRespuestaCorrecta,
+      baseCorrectas,
+      baseIncorrectas,
+    } = processAnswer({
+      attempt,
+      pregunta,
+      respuestaUsuario,
+      existingResponse,
+    });
 
     logger.debug('[MANICOMIO] Validando respuesta', {
       preguntaId,
@@ -87,20 +121,13 @@ export const answerQuestionManicomio = async (req, res, next) => {
       esCorrecta,
     });
 
-    // Si ya había una respuesta previa, restarla antes de sumar la nueva
-    const baseCorrectas = existingResponse
-      ? Math.max(0, attempt.cantidadCorrectas - (existingResponse.esCorrecta ? 1 : 0))
-      : attempt.cantidadCorrectas;
-    const baseIncorrectas = existingResponse
-      ? Math.max(0, attempt.cantidadIncorrectas - (existingResponse.esCorrecta ? 0 : 1))
-      : attempt.cantidadIncorrectas;
-
     let streakCurrent = esCorrecta ? attempt.streakCurrent + 1 : 0;
     let streakMax = Math.max(streakCurrent, attempt.streakMax);
     let cantidadCorrectas = baseCorrectas + (esCorrecta ? 1 : 0);
     let cantidadIncorrectas = baseIncorrectas + (esCorrecta ? 0 : 1);
     let finished = false;
     let puntaje = attempt.puntaje;
+    let totalRespondidas = attempt.respuestas?.length || 0;
 
     await prisma.$transaction(async (tx) => {
       if (existingResponse) {
@@ -155,44 +182,68 @@ export const answerQuestionManicomio = async (req, res, next) => {
         });
       }
 
-      if (streakCurrent >= attempt.streakTarget) {
-        finished = true;
-        const totalRespondidas = cantidadCorrectas + cantidadIncorrectas;
-        puntaje = Math.round((cantidadCorrectas / totalRespondidas) * 10);
+      // Calcular total de respondidas después de registrar la respuesta
+      totalRespondidas = await tx.attemptResponse.count({ where: { attemptId: id } });
 
-        await tx.testAttempt.update({
-          where: { id },
-          data: {
-            streakCurrent,
-            streakMax,
-            cantidadCorrectas,
-            cantidadIncorrectas,
-            puntaje,
-            tiempoFin: new Date(),
-          },
-        });
-      } else {
-        await tx.testAttempt.update({
-          where: { id },
-          data: {
-            streakCurrent,
-            streakMax,
-            cantidadCorrectas,
-            cantidadIncorrectas,
-          },
+      // Reordenar cola: mover la pregunta actual al final
+      if (isManicomioMode) {
+        const idx = queue.findIndex((qId) => qId === preguntaId);
+        if (idx >= 0) {
+          queue.splice(idx, 1);
+          if (idx < cursor) {
+            cursor = Math.max(0, cursor - 1);
+          }
+        }
+        queue.push(preguntaId);
+        if (cursor >= queue.length) {
+          cursor = cursor % queue.length;
+        }
+
+        // Log para diagnosticar orden y estado de la cola
+        logger.debug('[MANICOMIO] Cola tras responder', {
+          attemptId: id,
+          queueLength: queue.length,
+          cursor,
+          first10: queue.slice(0, 10),
         });
       }
-    });
 
-    // Obtener los textos de las respuestas
-    const opciones = [shuffled.opcionA, shuffled.opcionB, shuffled.opcionC, shuffled.opcionD];
-    const textoRespuestaUsuario = opciones[respuestaUsuario.charCodeAt(0) - 65];
-    const textoRespuestaCorrecta = opciones[respuestaCorrectaRemapeada.charCodeAt(0) - 65];
+      if (isManicomioMode) {
+        const result = await updateManicomioAttempt({
+          tx,
+          attemptId: id,
+          streakCurrent,
+          streakMax,
+          cantidadCorrectas,
+          cantidadIncorrectas,
+          streakTarget: attempt.streakTarget,
+          queue,
+          queueCursor: cursor,
+        });
+        finished = result.finished;
+        puntaje = result.puntaje ?? puntaje;
+      } else {
+        const totalPreguntas = attempt.test.questions.length;
+        const result = await updateAnkiAttempt({
+          tx,
+          attemptId: id,
+          cantidadCorrectas,
+          cantidadIncorrectas,
+          streakCurrent,
+          streakMax,
+          totalRespondidas,
+          totalPreguntas,
+        });
+        finished = result.finished;
+        puntaje = result.puntaje ?? puntaje;
+      }
+    });
 
     res.json({
       success: true,
       data: {
         esCorrecta,
+        respuestaUsuario,
         respuestaCorrecta: respuestaCorrectaRemapeada,
         textoRespuestaUsuario,
         textoRespuestaCorrecta,
@@ -204,7 +255,9 @@ export const answerQuestionManicomio = async (req, res, next) => {
         },
         streakCurrent,
         streakMax,
-        remaining: Math.max(attempt.streakTarget - streakCurrent, 0),
+        remaining: isManicomioMode
+          ? Math.max(attempt.streakTarget - streakCurrent, 0)
+          : Math.max((attempt.test.questions.length || 0) - totalRespondidas, 0),
         finished,
         cantidadCorrectas,
         cantidadIncorrectas,
@@ -246,50 +299,66 @@ export const getNextManicomioQuestion = async (req, res, next) => {
       throw new AppError('Intento de test no encontrado', 404);
     }
 
-    // Separar preguntas por estado
-    const respondidas_correctas = attempt.respuestas
-      .filter((resp) => resp.esCorrecta)
-      .map((resp) => resp.preguntaId);
+    // Cola persistida: tomar la siguiente pregunta según queue/queueCursor
+    const attemptQueue = attempt.queue;
+    let queue = Array.isArray(attemptQueue)
+      ? [...attemptQueue]
+      : (typeof attemptQueue === 'string' && attemptQueue.trim() !== ''
+        ? (() => { try { return JSON.parse(attemptQueue); } catch (_) { return []; } })()
+        : []);
+    const allQuestionsMap = new Map(
+      (attempt.test.questions || []).map((q) => [q.pregunta.id, q.pregunta])
+    );
 
-    const respondidas_incorrectas = attempt.respuestas
-      .filter((resp) => !resp.esCorrecta)
-      .map((resp) => resp.preguntaId);
+    if (queue.length === 0) {
+      // Fallback: construir cola con preguntas válidas y barajar
+      queue = (attempt.test.questions || [])
+        .map((q) => q.pregunta)
+        .filter(isPreguntaValid)
+        .map((p) => p.id);
+      if (queue.length === 0) {
+        throw new AppError('No hay preguntas válidas en el test', 404);
+      }
+      await prisma.testAttempt.update({
+        where: { id },
+        data: { queue: JSON.stringify(queue), queueCursor: 0 },
+      });
+    }
 
-    logger.info(`[MANICOMIO] Total: ${attempt.test.questions.length} preguntas, Correctas: ${respondidas_correctas.length}, Incorrectas: ${respondidas_incorrectas.length}`);
+    let cursor = attempt.queueCursor || 0;
+    let selected = null;
+    let attemptsLeft = queue.length;
 
-    // Usar TODAS las preguntas del test inicial (no ir a BD)
-    const todasLasPreguntas = attempt.test.questions
-      .map((q) => q.pregunta)
-      .filter(isPreguntaValid);
+    while (attemptsLeft > 0 && queue.length > 0) {
+      if (cursor >= queue.length) cursor = 0;
+      const targetId = queue[cursor];
+      const candidate = allQuestionsMap.get(targetId);
 
-    if (todasLasPreguntas.length === 0) {
+      if (candidate && isPreguntaValid(candidate)) {
+        selected = candidate;
+        cursor = (cursor + 1) % queue.length;
+        break;
+      }
+
+      // Si no es válida, eliminarla de la cola y continuar
+      queue.splice(cursor, 1);
+      attemptsLeft -= 1;
+    }
+
+    if (!selected) {
       throw new AppError('No hay preguntas válidas en el test', 404);
     }
 
-    // No respondidas = todas las del test - todas las respondidas (correctas o incorrectas)
-    const no_respondidas = todasLasPreguntas.filter(
-      (p) => !respondidas_correctas.includes(p.id) && !respondidas_incorrectas.includes(p.id)
-    );
+    // Persistir cursor/cola actualizada (si cambió la longitud)
+    await prisma.testAttempt.update({
+      where: { id },
+      data: {
+        queue: JSON.stringify(queue),
+        queueCursor: cursor,
+      },
+    });
 
-    // Incorrectas (para reintentar)
-    const incorrectas = todasLasPreguntas.filter(
-      (p) => respondidas_incorrectas.includes(p.id)
-    );
-
-    // Pool: priorizar no respondidas; solo usar incorrectas cuando no queden nuevas
-    const pool = no_respondidas.length > 0 ? no_respondidas : incorrectas;
-    const poolTipo = no_respondidas.length > 0 ? 'no_respondidas' : 'incorrectas';
-
-    logger.info(`[MANICOMIO] Pool (${poolTipo}): ${pool.length} (no respondidas: ${no_respondidas.length}, incorrectas: ${incorrectas.length})`);
-
-    if (pool.length === 0) {
-      throw new AppError('No hay más preguntas disponibles', 404);
-    }
-
-    const randomIndex = Math.floor(Math.random() * pool.length);
-    const selected = pool[randomIndex];
-    
-    logger.info(`[MANICOMIO] Seleccionada: índice ${randomIndex} de ${pool.length}, ID: ${selected.id}`);
+    logger.info(`[MANICOMIO] Seleccionada desde cola. Cursor: ${cursor}/${queue.length}, ID: ${selected.id}`);
     const shuffled = shuffleQuestionOptions(selected);
     const merged = {
       id: selected.id,

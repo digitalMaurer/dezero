@@ -1,7 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import pkg from '@prisma/client';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../utils/logger.js';
 
+const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
 // Crear reporte de pregunta

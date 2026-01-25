@@ -37,9 +37,10 @@ export const DashboardAnki = () => {
     try {
       setLoading(true);
       
-      // Cargar oposiciones
+      // Cargar oposiciones visibles solamente
       const oposResponse = await oposicionesService.getAll();
-      const opos = oposResponse.data?.oposiciones || oposResponse.oposiciones || [];
+      const oposRaw = oposResponse.data?.oposiciones || oposResponse.oposiciones || [];
+      const opos = oposRaw.filter((op) => op.visible !== false);
       
       // Cargar estadísticas Anki para cada oposición
       const oposConStats = await Promise.all(
@@ -210,14 +211,14 @@ export const DashboardAnki = () => {
               variant="contained"
               color="error"
               startIcon={<RepeatIcon />}
-              onClick={() => navigate('/test?mode=ANKI')}
+              onClick={() => navigate('/test/create?mode=ANKI')}
               disabled={pendientesRepaso === 0}
             >
               Repasar Ahora ({pendientesRepaso})
             </Button>
             <Button
               variant="outlined"
-              onClick={() => navigate('/test')}
+              onClick={() => navigate('/test/create')}
             >
               Crear Nuevo Test
             </Button>
@@ -292,7 +293,7 @@ export const DashboardAnki = () => {
                     fullWidth
                     variant="contained"
                     size="small"
-                    onClick={() => navigate(`/test?mode=ANKI&oposicionId=${oposicion.id}`)}
+                    onClick={() => navigate(`/test/create?mode=ANKI&oposicionId=${oposicion.id}`)}
                     disabled={pendientes === 0}
                   >
                     Repasar ({pendientes})

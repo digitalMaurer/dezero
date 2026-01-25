@@ -29,6 +29,7 @@ export const ManicomioResultDialog = ({
   difficultyDraft,
   difficultyError,
   savingDifficulty,
+  isAnkiMode = false,
   onClose,
   onReport,
   onToggleFavorite,
@@ -52,8 +53,8 @@ export const ManicomioResultDialog = ({
         >
           {result?.esCorrecta
             ? '✅ Respuesta correcta'
-            : '❌ Respuesta incorrecta, la racha se reinicia'}
-          {typeof result?.remaining === 'number' && (
+            : (isAnkiMode ? '❌ Respuesta incorrecta' : '❌ Respuesta incorrecta, la racha se reinicia')}
+          {typeof result?.remaining === 'number' && !isAnkiMode && (
             <strong>
               {' '}
               · Te faltan {result.remaining} aciertos para llegar a {streakTarget}.

@@ -27,6 +27,8 @@ export const Estadisticas = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionError, setActionError] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -37,7 +39,7 @@ export const Estadisticas = () => {
       setLoading(true);
       const [statsResponse, historyResponse] = await Promise.all([
         testsService.getStats(),
-        testsService.getHistory(),
+        testsService.getHistory(1, 1000),
       ]);
       // Backend devuelve { success: true, data: {...} }
       setStats(statsResponse.data);
@@ -67,6 +69,23 @@ export const Estadisticas = () => {
     if (percentage >= 80) return 'success';
     if (percentage >= 60) return 'warning';
     return 'error';
+  };
+
+  const handleDeleteAttempt = async (attemptId) => {
+    const confirmDelete = window.confirm('¿Eliminar este test? No podrás recuperarlo.');
+    if (!confirmDelete) return;
+
+    setActionError(null);
+    setDeletingId(attemptId);
+    try {
+      await testsService.deleteAttempt(attemptId);
+      setHistory((prev) => prev.filter((a) => a.id !== attemptId));
+    } catch (err) {
+      setActionError('No se pudo eliminar el test');
+      console.error(err);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (loading) {
@@ -194,12 +213,18 @@ export const Estadisticas = () => {
             Historial de Tests
           </Typography>
 
+          {actionError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {actionError}
+            </Alert>
+          )}
+
           {history.length === 0 ? (
             <Alert severity="info">
               Aún no has realizado ningún test. ¡Empieza ahora!
             </Alert>
           ) : (
-            <TableContainer>
+            <TableContainer sx={{ maxHeight: 520 }}>
               <Table>
                 <TableHead>
                   <TableRow>
@@ -240,15 +265,26 @@ export const Estadisticas = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          {completado ? (
-                            <Button size="small" onClick={() => navigate(`/test/results/${attempt.id}`)}>
-                              Ver Resultados
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            {completado ? (
+                              <Button size="small" onClick={() => navigate(`/test/results/${attempt.id}`)}>
+                                Ver Resultados
+                              </Button>
+                            ) : (
+                              <Button size="small" variant="outlined" onClick={() => navigate(`/test/${attempt.id}`)}>
+                                Continuar
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                              onClick={() => handleDeleteAttempt(attempt.id)}
+                              disabled={deletingId === attempt.id}
+                            >
+                              {deletingId === attempt.id ? 'Eliminando...' : 'Eliminar'}
                             </Button>
-                          ) : (
-                            <Button size="small" variant="outlined" onClick={() => navigate(`/test/${attempt.id}`)}>
-                              Continuar
-                            </Button>
-                          )}
+                          </Box>
                         </TableCell>
                       </TableRow>
                     );
