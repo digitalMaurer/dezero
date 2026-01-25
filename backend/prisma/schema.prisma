@@ -39,6 +39,7 @@ model Oposicion {
   nombre    String
   codigo    String   @unique
   descripcion String?
+  visible   Boolean  @default(true)
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

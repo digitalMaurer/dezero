@@ -55,6 +55,8 @@ export const AdminOposiciones = () => {
       const response = await oposicionesService.getAll();
       // Backend devuelve { success: true, data: { oposiciones: [...] } }
       const data = response.data?.oposiciones || response.oposiciones || [];
+      console.log('Oposiciones recibidas:', data);
+      console.log('Oposiciones con visible field:', data.map(op => ({ id: op.id, nombre: op.nombre, visible: op.visible })));
       setOposiciones(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
@@ -145,6 +147,7 @@ export const AdminOposiciones = () => {
       setLoading(true);
       setError(null);
       const nuevoEstado = !oposicion.visible;
+      console.log('Enviando visible:', nuevoEstado, 'para oposicion:', oposicion.id);
       await oposicionesService.update(oposicion.id, {
         visible: nuevoEstado,
       });

@@ -28,7 +28,10 @@ export const Oposiciones = () => {
     try {
       setLoading(true);
       const response = await oposicionesService.getAll();
-      setOposiciones(response.data.oposiciones);
+      const todasOposiciones = response.data.oposiciones;
+      // Filtrar solo oposiciones visibles para usuarios
+      const oposicionesVisibles = todasOposiciones.filter(op => op.visible !== false);
+      setOposiciones(oposicionesVisibles);
     } catch (err) {
       setError('Error al cargar las oposiciones');
       console.error(err);

@@ -92,11 +92,17 @@ export const createOposicion = async (req, res, next) => {
 export const updateOposicion = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { nombre, descripcion } = req.body;
+    const { nombre, descripcion, visible } = req.body;
+
+    // Construir objeto de actualización solo con los campos enviados
+    const updateData = {};
+    if (nombre !== undefined) updateData.nombre = nombre;
+    if (descripcion !== undefined) updateData.descripcion = descripcion;
+    if (visible !== undefined) updateData.visible = visible;
 
     const oposicion = await prisma.oposicion.update({
       where: { id },
-      data: { nombre, descripcion },
+      data: updateData,
     });
 
     res.json({

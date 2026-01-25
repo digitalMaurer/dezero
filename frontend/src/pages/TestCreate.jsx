@@ -89,7 +89,10 @@ export const TestCreate = () => {
     try {
       setLoading(true);
       const response = await oposicionesService.getAll();
-      setOposiciones(response.data);
+      const todasOposiciones = response.data;
+      // Filtrar solo oposiciones visibles para usuarios
+      const oposicionesVisibles = todasOposiciones.filter(op => op.visible !== false);
+      setOposiciones(oposicionesVisibles);
     } catch (err) {
       setError('Error al cargar las oposiciones');
       console.error(err);
