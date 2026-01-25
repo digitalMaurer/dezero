@@ -1,7 +1,7 @@
 import pkg from '@prisma/client';
 import { AppError } from '../../middleware/errorHandler.js';
 import { logger } from '../../utils/logger.js';
-import { shuffleQuestionOptions } from '../../utils/shuffleUtils.js';
+import { shuffleQuestionOptions, shuffleArray } from '../../utils/shuffleUtils.js';
 import { isPreguntaValid } from '../../services/questionSelector.js';
 import { processAnswer } from '../../services/answerProcessor.js';
 import { updateAnkiAttempt, updateManicomioAttempt } from '../../services/attemptUpdater.js';
@@ -94,7 +94,33 @@ export const answerQuestionManicomio = async (req, res, next) => {
       }
     }
     if (!Array.isArray(queue)) queue = [];
+    const prevQueueLength = queue.length;
     let cursor = attempt.queueCursor || 0;
+
+    // Reparar cola si está incompleta o desincronizada
+    if (isManicomioMode) {
+      const validQuestions = (attempt.test.questions || [])
+        .map((q) => q.pregunta)
+        .filter(isPreguntaValid);
+      const validIds = validQuestions.map((p) => p.id);
+      const hasMismatch =
+        queue.length !== validIds.length ||
+        queue.some((id) => !validIds.includes(id));
+
+      if (hasMismatch) {
+        queue = shuffleArray(validIds);
+        cursor = 0;
+        logger.warn('[MANICOMIO] Cola reparada por mismatch', {
+          attemptId: id,
+          prevLength: prevQueueLength,
+          newLength: queue.length,
+        });
+        await prisma.testAttempt.update({
+          where: { id },
+          data: { queue: JSON.stringify(queue), queueCursor: cursor },
+        });
+      }
+    }
 
     // En MANICOMIO, permitimos reintentos sin restricciones
     // Si ya existe respuesta, simplemente la actualizaremos
@@ -306,22 +332,39 @@ export const getNextManicomioQuestion = async (req, res, next) => {
       : (typeof attemptQueue === 'string' && attemptQueue.trim() !== ''
         ? (() => { try { return JSON.parse(attemptQueue); } catch (_) { return []; } })()
         : []);
-    const allQuestionsMap = new Map(
-      (attempt.test.questions || []).map((q) => [q.pregunta.id, q.pregunta])
-    );
+    const validQuestions = (attempt.test.questions || [])
+      .map((q) => q.pregunta)
+      .filter(isPreguntaValid);
+    const allQuestionsMap = new Map(validQuestions.map((q) => [q.id, q]));
 
     if (queue.length === 0) {
       // Fallback: construir cola con preguntas válidas y barajar
-      queue = (attempt.test.questions || [])
-        .map((q) => q.pregunta)
-        .filter(isPreguntaValid)
-        .map((p) => p.id);
+      queue = validQuestions.map((p) => p.id);
       if (queue.length === 0) {
         throw new AppError('No hay preguntas válidas en el test', 404);
       }
       await prisma.testAttempt.update({
         where: { id },
         data: { queue: JSON.stringify(queue), queueCursor: 0 },
+      });
+    }
+
+    // Si la cola no coincide en tamaño/contenido con las preguntas del test, reconstruirla
+    const hasMismatch =
+      queue.length !== validQuestions.length ||
+      queue.some((qId) => !allQuestionsMap.has(qId));
+
+    if (hasMismatch) {
+      queue = shuffleArray(validQuestions.map((p) => p.id));
+      cursor = 0;
+      await prisma.testAttempt.update({
+        where: { id },
+        data: { queue: JSON.stringify(queue), queueCursor: cursor },
+      });
+      logger.warn('[MANICOMIO] Cola reconstruida por mismatch', {
+        attemptId: id,
+        queueLength: queue.length,
+        expected: validQuestions.length,
       });
     }
 
