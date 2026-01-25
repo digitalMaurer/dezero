@@ -50,18 +50,29 @@ export const Dashboard = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  const handleNavigate = (path) => {
+    // Validar acceso a herramientas de admin
+    if (path === '/preguntas') {
+      if (user?.role !== 'ADMIN') {
+        setSnackbar({
+          open: true,
+          message: '⚠️ Herramienta exclusiva de administradores',
+          severity: 'warning',
+        });
+        return;
+      }
+      navigate('/admin/preguntas');
+      return;
+    }
+    navigate(path);
+  };
+
   const menuItems = [
     {
-      title: 'Oposiciones',
-      description: 'Gestiona todas las oposiciones disponibles',
+      title: 'Crear Test',
+      description: 'Elige oposición y configura tu test',
       path: '/oposiciones',
-      icon: '📋',
-    },
-    {
-      title: 'Realizar Test',
-      description: 'Realiza un test personalizado',
-      path: '/test',
-      icon: '✍️',
+      icon: '📝',
     },
     {
       title: 'Dashboard Anki',
@@ -127,7 +138,7 @@ export const Dashboard = () => {
                     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
                   },
                 }}
-                onClick={() => navigate(item.path)}
+                onClick={() => handleNavigate(item.path)}
               >
                 <CardContent>
                   <Typography variant="h3" sx={{ mb: 2 }}>
