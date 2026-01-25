@@ -18,10 +18,15 @@ import {
   TableRow,
   Alert,
   CircularProgress,
+  Chip,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { oposicionesService } from '../services/apiServices';
 
 export const AdminOposiciones = () => {
@@ -30,6 +35,7 @@ export const AdminOposiciones = () => {
   const [success, setSuccess] = useState(null);
 
   const [oposiciones, setOposiciones] = useState([]);
+  const [mostrarOcultas, setMostrarOcultas] = useState(false);
 
   const [openDialog, setOpenDialog] = useState(false);
   const [editingOposicion, setEditingOposicion] = useState(null);
@@ -134,6 +140,28 @@ export const AdminOposiciones = () => {
     }
   };
 
+  const handleToggleVisibility = async (oposicion) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const nuevoEstado = !oposicion.visible;
+      await oposicionesService.update(oposicion.id, {
+        visible: nuevoEstado,
+      });
+      setSuccess(`Oposición ${nuevoEstado ? 'mostrada' : 'ocultada'}`);
+      loadOposiciones();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Error al cambiar visibilidad de oposición');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const oposicionesFiltradas = mostrarOcultas
+    ? oposiciones
+    : oposiciones.filter((op) => op.visible !== false);
+
   return (
     <Container maxWidth="lg">
       <Box sx={{ py: 4 }}>
@@ -153,15 +181,19 @@ export const AdminOposiciones = () => {
           </Alert>
         )}
 
-        {/* Botón Nueva Oposición */}
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-          sx={{ mb: 3 }}
-        >
-          Nueva Oposición
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 3 }}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+          >
+            Nueva Oposición
+          </Button>
+          <FormControlLabel
+            control={<Checkbox checked={mostrarOcultas} onChange={(e) => setMostrarOcultas(e.target.checked)} />}
+            label="Mostrar ocultas"
+          />
+        </Box>
 
         {/* Tabla de Oposiciones */}
         {loading ? (
@@ -176,23 +208,39 @@ export const AdminOposiciones = () => {
                   <TableCell>Nombre</TableCell>
                   <TableCell>Código</TableCell>
                   <TableCell>Descripción</TableCell>
+                  <TableCell>Estado</TableCell>
                   <TableCell>Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {oposiciones.length === 0 ? (
+                {oposicionesFiltradas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">
-                      No hay oposiciones creadas
+                    <TableCell colSpan={5} align="center">
+                      No hay oposiciones {mostrarOcultas ? '' : 'visibles'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  oposiciones.map((oposicion) => (
+                  oposicionesFiltradas.map((oposicion) => (
                     <TableRow key={oposicion.id}>
                       <TableCell>{oposicion.nombre}</TableCell>
                       <TableCell>{oposicion.codigo}</TableCell>
                       <TableCell>{oposicion.descripcion || '-'}</TableCell>
                       <TableCell>
+                        <Chip
+                          label={oposicion.visible !== false ? 'Visible' : 'Oculta'}
+                          color={oposicion.visible !== false ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="small"
+                          startIcon={oposicion.visible !== false ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                          onClick={() => handleToggleVisibility(oposicion)}
+                          variant="outlined"
+                        >
+                          {oposicion.visible !== false ? 'Ocultar' : 'Mostrar'}
+                        </Button>
                         <Button
                           size="small"
                           startIcon={<EditIcon />}

@@ -161,7 +161,9 @@ export const useAdminPreguntasLogic = () => {
     try {
       const response = await oposicionesService.getAll();
       const data = response.data?.oposiciones || response.oposiciones || [];
-      setOposiciones(Array.isArray(data) ? data : []);
+      // Filtrar solo oposiciones visibles para el usuario
+      const visibles = Array.isArray(data) ? data.filter((op) => op.visible !== false) : [];
+      setOposiciones(visibles);
     } catch (err) {
       console.error(err);
       setError('Error al cargar oposiciones');
