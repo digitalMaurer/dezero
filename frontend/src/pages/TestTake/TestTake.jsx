@@ -229,6 +229,13 @@ export const TestTake = () => {
   const handleExportPDF = async () => {
     try {
       setExportingPDF(true);
+      
+      if (!attemptId) {
+        setError('No se puede exportar: intento no cargado.');
+        setExportingPDF(false);
+        return;
+      }
+      
       const response = await testsService.exportAttemptToPDF(attemptId, false);
       
       // Crear blob y descargar

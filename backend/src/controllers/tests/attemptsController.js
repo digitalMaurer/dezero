@@ -421,16 +421,26 @@ export const getTestAttempt = async (req, res, next) => {
 // Exportar test a PDF
 export const exportTestToPDF = async (req, res, next) => {
   try {
-    const { testId } = req.params;
+    const { id: attemptId } = req.params;
     const { withAnswers = false } = req.query;
 
-    if (!testId) {
-      throw new AppError('testId es requerido', 400);
+    if (!attemptId) {
+      throw new AppError('attemptId es requerido', 400);
+    }
+
+    // Obtener attempt para derivar testId
+    const attempt = await prisma.testAttempt.findUnique({
+      where: { id: attemptId },
+      select: { testId: true },
+    });
+
+    if (!attempt) {
+      throw new AppError('Intento no encontrado', 404);
     }
 
     // Obtener test con preguntas
     const test = await prisma.test.findUnique({
-      where: { id: testId },
+      where: { id: attempt.testId },
       include: {
         questions: {
           include: {
@@ -481,13 +491,13 @@ export const exportTestToPDF = async (req, res, next) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="test-${testId}.pdf"`
+      `attachment; filename="test-${attempt.testId}.pdf"`
     );
 
     // Pipe del PDF al response
     doc.pipe(res);
 
-    logger.info(`✅ PDF generado para test ${testId}`);
+    logger.info(`✅ PDF generado para test ${attempt.testId} (attempt ${attemptId})`);
   } catch (error) {
     next(error);
   }
