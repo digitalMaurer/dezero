@@ -32,9 +32,35 @@ export const getTemas = async (req, res, next) => {
       },
     });
 
+    // Enriquecer con conteo de activas y duplicadas
+    const enrichedTemas = await Promise.all(temas.map(async (tema) => {
+      const totalActive = await prisma.pregunta.count({
+        where: {
+          temaId: tema.id,
+          duplicateStatus: 'ACTIVE'
+        }
+      });
+      
+      const totalDuplicated = await prisma.pregunta.count({
+        where: {
+          temaId: tema.id,
+          duplicateStatus: 'DUPLICATED'
+        }
+      });
+
+      return {
+        ...tema,
+        _count: {
+          preguntas: totalActive,  // Solo activas
+          preguntasTotal: totalActive + totalDuplicated,
+          preguntasDuplicated: totalDuplicated
+        }
+      };
+    }));
+
     res.json({
       success: true,
-      data: { temas },
+      data: { temas: enrichedTemas },
     });
   } catch (error) {
     next(error);

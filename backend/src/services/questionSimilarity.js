@@ -88,3 +88,92 @@ export const findSimilarQuestions = async ({ prisma, preguntaId, threshold = 0.4
 
   return { base, similar: scored };
 };
+
+// Escaneo por tema (o global) sin pregunta base: devuelve pares con score >= threshold
+export const scanSimilarQuestions = async ({ prisma, temaId = null, threshold = 0.4, limit = 200, maxCandidates = 300 }) => {
+  const where = temaId
+    ? { temaId, duplicateStatus: 'ACTIVE' }
+    : { duplicateStatus: 'ACTIVE' };
+
+  const candidates = await prisma.pregunta.findMany({
+    where,
+    include: { tema: true },
+    take: maxCandidates,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (candidates.length === 0) {
+    return [];
+  }
+
+  // Pre-cargar falsos positivos para estos IDs
+  const ids = candidates.map((c) => c.id);
+  const fpairs = prisma.duplicateFalsePositive
+    ? await prisma.duplicateFalsePositive.findMany({
+        where: {
+          OR: [{ preguntaAId: { in: ids } }, { preguntaBId: { in: ids } }],
+        },
+      })
+    : [];
+  const fpSet = new Set(
+    fpairs.map((p) => {
+      const a = [p.preguntaAId, p.preguntaBId].sort();
+      return a.join('|');
+    })
+  );
+
+  // Tokenizar una vez por pregunta
+  const tokenMap = new Map();
+  candidates.forEach((p) => {
+    tokenMap.set(p.id, tokenize(`${p.titulo || ''} ${p.enunciado || ''}`));
+  });
+
+  const pairs = [];
+  for (let i = 0; i < candidates.length; i += 1) {
+    const a = candidates[i];
+    const tokensA = tokenMap.get(a.id) || [];
+    for (let j = i + 1; j < candidates.length; j += 1) {
+      const b = candidates[j];
+      const pairKey = [a.id, b.id].sort().join('|');
+      if (fpSet.has(pairKey)) continue;
+
+      const tokensB = tokenMap.get(b.id) || [];
+      const score = jaccardSimilarity(tokensA, tokensB);
+      if (score >= threshold) {
+        pairs.push({
+          a,
+          b,
+          score,
+        });
+      }
+    }
+  }
+
+  // Agrupar pares por pregunta base: cada pregunta que aparece se convierte en un grupo
+  const groupMap = new Map();
+  
+  pairs.forEach(({ a, b, score }) => {
+    // Agregar b como similar de a
+    if (!groupMap.has(a.id)) {
+      groupMap.set(a.id, { base: a, similar: [] });
+    }
+    groupMap.get(a.id).similar.push({ pregunta: b, score });
+
+    // Agregar a como similar de b
+    if (!groupMap.has(b.id)) {
+      groupMap.set(b.id, { base: b, similar: [] });
+    }
+    groupMap.get(b.id).similar.push({ pregunta: a, score });
+  });
+
+  // Convertir a array, ordenar similar por score descendente en cada grupo, limitar grupos
+  const groups = Array.from(groupMap.values())
+    .map((group) => ({
+      ...group,
+      similar: group.similar.sort((x, y) => y.score - x.score),
+    }))
+    .sort((x, y) => y.similar.length - x.similar.length)
+    .slice(0, limit);
+
+  return groups;
+};

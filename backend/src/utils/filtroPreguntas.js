@@ -14,6 +14,7 @@ const prisma = new PrismaClient();
 export async function getPreguntasConFiltro(temaIds, filtroTipo, dificultad, userId) {
   const baseWhere = {
     status: 'PUBLISHED',
+    duplicateStatus: 'ACTIVE',  // Solo preguntas activas, no duplicadas
   };
 
   if (temaIds && temaIds.length > 0) {

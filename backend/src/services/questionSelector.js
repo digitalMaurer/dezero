@@ -19,7 +19,7 @@ export const isPreguntaValid = (pregunta) => {
 };
 
 const buildBaseWhere = ({ oposicionId, temasSeleccionados, dificultad }) => {
-  const where = { status: 'PUBLISHED' };
+  const where = { status: 'PUBLISHED', duplicateStatus: 'ACTIVE' };  // Solo preguntas activas
 
   if (temasSeleccionados && temasSeleccionados.length > 0) {
     where.temaId = { in: temasSeleccionados };
@@ -93,6 +93,7 @@ const selectors = {
         const where = {
           status: 'PUBLISHED',
           temaId: tId,
+          duplicateStatus: 'ACTIVE',  // Solo preguntas activas
         };
         if (dificultad) where.dificultad = dificultad;
         const items = await prisma.pregunta.findMany({ where });
@@ -144,6 +145,7 @@ const selectors = {
       userId,
       pregunta: {
         status: 'PUBLISHED',
+        duplicateStatus: 'ACTIVE',  // Solo preguntas activas
         ...(dificultad && { dificultad }),
         ...(temasSeleccionados && temasSeleccionados.length > 0 && {
           temaId: { in: temasSeleccionados },

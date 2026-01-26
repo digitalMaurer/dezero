@@ -75,24 +75,15 @@ export const AdminPreguntas = () => {
     // Duplicados
     duplicateTemaFilter,
     setDuplicateTemaFilter,
-    duplicateCandidates,
-    duplicateBaseId,
-    setDuplicateBaseId,
-    duplicateBasePregunta,
-    duplicateSimilar,
+    duplicateGroups,
     duplicateThreshold,
     setDuplicateThreshold,
     duplicateLimit,
     setDuplicateLimit,
     duplicateLoading,
-    mergeSelection,
-    setMergeSelection,
-    mergeMasterId,
-    setMergeMasterId,
-    loadDuplicateCandidates,
-    handleFetchSimilarDuplicates,
+    handleScanDuplicates,
     handleMarkFalsePositive,
-    handleMergeDuplicates,
+    handleMergeGroup,
     handleBulkMove,
     handleImport,
     handleCreateWithImage,
@@ -204,24 +195,15 @@ export const AdminPreguntas = () => {
             temasParaFiltro={temasParaFiltro}
             duplicateTemaFilter={duplicateTemaFilter}
             setDuplicateTemaFilter={setDuplicateTemaFilter}
-            duplicateCandidates={duplicateCandidates}
-            duplicateBaseId={duplicateBaseId}
-            setDuplicateBaseId={setDuplicateBaseId}
-            duplicateBasePregunta={duplicateBasePregunta}
-            duplicateSimilar={duplicateSimilar}
+            duplicateGroups={duplicateGroups}
             duplicateThreshold={duplicateThreshold}
             setDuplicateThreshold={setDuplicateThreshold}
             duplicateLimit={duplicateLimit}
             setDuplicateLimit={setDuplicateLimit}
             duplicateLoading={duplicateLoading}
-            mergeSelection={mergeSelection}
-            setMergeSelection={setMergeSelection}
-            mergeMasterId={mergeMasterId}
-            setMergeMasterId={setMergeMasterId}
-            reloadCandidates={loadDuplicateCandidates}
-            handleFetchSimilar={handleFetchSimilarDuplicates}
+            handleScanDuplicates={handleScanDuplicates}
             handleMarkFalsePositive={handleMarkFalsePositive}
-            handleMerge={handleMergeDuplicates}
+            handleMergeGroup={handleMergeGroup}
           />
         )}
 

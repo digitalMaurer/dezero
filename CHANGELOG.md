@@ -2,6 +2,45 @@
 
 ## 2026-01-25 (Sesión actual)
 
+### Duplicados - Mejoras UI, Auto-refresh y Filtrado Global en Tests
+- **Backend enhancements**:
+  - `questionSimilarity.js`: `scanSimilarQuestions` ahora excluye preguntas con `duplicateStatus = 'DUPLICATED'` (merged), devuelve grupos ordenados por cantidad de similares
+  - `preguntasController.js`: 
+    - `getPreguntas` filtra `duplicateStatus = 'ACTIVE'` por defecto; devuelve `totalDuplicated` y `totalAll` en pagination
+    - `generateRandomTest` excluye duplicadas con filtro en where clause
+  - `ankiController.js`: `getDueQuestionsForTemas` y `getAnkiStatsByOposicion` filtran `duplicateStatus = 'ACTIVE'`
+  - `temasController.js`: `getTemas` enriquece respuesta con conteos: `_count.preguntas` (solo activas), `_count.preguntasTotal` (todas), `_count.preguntasDuplicated`
+  - `oposicionesController.js`: `getOposiciones` enriquece con mismo desglose de conteos
+  - `questionSelector.js`: 
+    - `buildBaseWhere()` incluye `duplicateStatus: 'ACTIVE'` para todos los modos
+    - SIMULACRO_EXAMEN, FAVORITOS, ANKI, ALEATORIO, FILTRADO - todos excluyen duplicadas
+  - `filtroPreguntas.js`: `getPreguntasConFiltro` filtra `duplicateStatus: 'ACTIVE'`
+  - Logs en terminal: merge muestra pregunta maestra, IDs duplicadas, usuario y estrategia; false-positive muestra par marcado
+  
+- **Frontend refactorización**:
+  - `AdminPreguntasDuplicates.jsx`: 
+    - Cambio **Collapse → Dialog modal** para ver detalles de grupos (mejor UX, más espacio)
+    - Componente `DuplicateGroupDialog` con tabla interna: checkboxes para seleccionar duplicados, radio para elegir maestra desde cualquier pregunta
+    - Estado reseteado al abrir nuevo grupo con useEffect (fix: contador de "Unificar" no se acumulaba)
+    - Tabla principal: columnas ID | Base | Similares | Score Máx | Acciones (botón "Ver detalles")
+    - Auto-refresh tras merge/false-positive: llama a `handleScanDuplicates()` para actualizar lista
+  - `useAdminPreguntasLogic.js`: 
+    - `handleMergeGroup()` y `handleMarkFalsePositive()` refrescan lista automáticamente tras acción
+    - Estado `duplicateGroups` en lugar de `duplicatePairs`
+  - `Oposiciones.jsx`: muestra "(X duplicadas)" en naranja junto al contador de preguntas
+
+- **Impacto funcional**:
+  - ✅ Tests NUNCA incluyen preguntas duplicadas (fusionadas)
+  - ✅ Contadores en UI (oposiciones, temas, tests) reflejan solo preguntas activas
+  - ✅ Después de fusionar: contador baja automáticamente, escaneo refresca, preguntas no reaparecen
+  - ✅ Admin ve desglose: "2961 preguntas (2 duplicadas)" en tarjeta de oposición
+  - ✅ Dialog modal clara para gestionar grupos sin desplazar tabla principal
+
+### Duplicados - Detección, falsos positivos y merge (Commits: aeb37a0, pending)
+- **Backend**: campos `duplicateStatus`/`masterPreguntaId` en Pregunta, tablas `pregunta_merge_history` y `duplicate_false_positives`, migración `20260125190000_add_duplicate_flags`, servicio `questionSimilarity` con stopwords y exclusión de falsos positivos. Endpoints admin: `/preguntas/:id/similar`, `/preguntas/duplicates/false-positive`, `/preguntas/duplicates/merge` y nuevo `/preguntas/duplicates/scan` para escaneo automático por tema/global.
+- **Frontend Admin**: pestaña **Duplicados** ahora escanea automáticamente por tema sin elegir pregunta base; controles de umbral/límite; tabla de pares con score y acciones rápidas: "A/B maestra" (merge) y "No es duplicada" (false positive). Cliente API expone `scanDuplicates` además de las acciones de merge/falso positivo.
+- **Nota pendiente**: falta reasignar referencias de `test_questions` y `attempt_responses` al hacer merge en backend.
+
 ### MANICOMIO/ANKI - Queue-based Sequential Flow con Auto-repair
 - **Backend schema** (`backend/prisma/schema.prisma`): añadidos campos `queue` (String JSON) y `queueCursor` (Int) a TestAttempt para persistir cola de preguntas secuencial.
 - **Backend migration** (`backend/prisma/migrations/20260125171558_add_queue_fields/`): migración SQL para agregar campos queue/queueCursor con defaults.

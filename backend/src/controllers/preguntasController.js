@@ -1,23 +1,29 @@
 import pkg from '@prisma/client';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../utils/logger.js';
-import { findSimilarQuestions } from '../services/questionSimilarity.js';
+import { findSimilarQuestions, scanSimilarQuestions } from '../services/questionSimilarity.js';
 
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
 export const getPreguntas = async (req, res, next) => {
   try {
-    const { temaId, dificultad, status, page = 1, limit = 100 } = req.query;
+    const { temaId, dificultad, status, page = 1, limit = 100, includeDeleted = false } = req.query;
 
     const where = {};
     if (temaId) where.temaId = temaId;
     if (dificultad) where.dificultad = dificultad;
     if (status) where.status = status;
+    
+    // Por defecto, excluir preguntas duplicadas (fusionadas)
+    // Si includeDeleted=true, mostrar todas (incluso duplicadas)
+    if (includeDeleted !== 'true') {
+      where.duplicateStatus = 'ACTIVE';
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const [preguntas, total] = await Promise.all([
+    const [preguntas, total, totalDuplicated] = await Promise.all([
       prisma.pregunta.findMany({
         where,
         include: {
@@ -42,6 +48,7 @@ export const getPreguntas = async (req, res, next) => {
         },
       }),
       prisma.pregunta.count({ where }),
+      prisma.pregunta.count({ where: { duplicateStatus: 'DUPLICATED' } }),
     ]);
 
     res.json({
@@ -50,6 +57,8 @@ export const getPreguntas = async (req, res, next) => {
         preguntas,
         pagination: {
           total,
+          totalDuplicated,
+          totalAll: total + totalDuplicated,
           page: parseInt(page),
           limit: parseInt(limit),
           totalPages: Math.ceil(total / parseInt(limit)),
@@ -192,6 +201,25 @@ export const getSimilarPreguntas = async (req, res, next) => {
   }
 };
 
+// Escanear duplicados por tema o global (sin pregunta base)
+export const scanDuplicatePreguntas = async (req, res, next) => {
+  try {
+    const { temaId = null, threshold = 0.4, limit = 200, maxCandidates = 300 } = req.query;
+
+    const groups = await scanSimilarQuestions({
+      prisma,
+      temaId: temaId || null,
+      threshold: Number(threshold) || 0.4,
+      limit: Number(limit) || 200,
+      maxCandidates: Number(maxCandidates) || 300,
+    });
+
+    res.json({ success: true, data: { groups } });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Marcar par como falso positivo (no es duplicado) - admin
 export const markDuplicateFalsePositive = async (req, res, next) => {
   try {
@@ -219,8 +247,7 @@ export const markDuplicateFalsePositive = async (req, res, next) => {
       },
       update: {},
     });
-
-    res.json({ success: true, message: 'Marcado como no duplicado (false positive)' });
+    console.log(`✅ Marcado como NO DUPLICADO: Preguntas ${sorted[0]} y ${sorted[1]}`);    res.json({ success: true, message: 'Marcado como no duplicado (false positive)' });
   } catch (error) {
     next(error);
   }
@@ -285,6 +312,12 @@ export const mergePreguntas = async (req, res, next) => {
 
       // TODO: Reasignar test_questions / attempt_responses a la maestra evitando conflictos de único.
     });
+
+    console.log(`\n🔀 FUSIÓN DE PREGUNTAS:`);
+    console.log(`   📌 Pregunta MAESTRA: ID ${masterPreguntaId}`);
+    console.log(`   🗑️  Preguntas DUPLICADAS: ${uniqueDuplicates.join(', ')} (${uniqueDuplicates.length} preguntas)`);
+    console.log(`   👤 Fusionado por: ${userId}`);
+    console.log(`   ⚙️  Estrategia: ${mergeStrategy}\n`);
 
     res.json({ success: true, message: 'Preguntas unificadas', data: { masterPreguntaId, duplicateIds: uniqueDuplicates } });
   } catch (error) {
@@ -422,6 +455,7 @@ export const generateRandomTest = async (req, res, next) => {
     const where = {
       temaId,
       status: 'PUBLISHED',
+      duplicateStatus: 'ACTIVE',  // Solo preguntas activas, no duplicadas
     };
 
     if (dificultad) {

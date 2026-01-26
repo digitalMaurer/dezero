@@ -113,6 +113,11 @@ export const Oposiciones = () => {
                           0
                         )}{' '}
                         preguntas
+                        {oposicion._count?.preguntasDuplicated > 0 && (
+                          <span style={{ color: '#ff9800', marginLeft: '8px' }}>
+                            ({oposicion._count.preguntasDuplicated} duplicadas)
+                          </span>
+                        )}
                       </Typography>
                     </Box>
                   )}

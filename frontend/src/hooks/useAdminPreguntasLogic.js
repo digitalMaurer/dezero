@@ -69,15 +69,10 @@ export const useAdminPreguntasLogic = () => {
 
   // Duplicados
   const [duplicateTemaFilter, setDuplicateTemaFilter] = useState('');
-  const [duplicateCandidates, setDuplicateCandidates] = useState([]);
-  const [duplicateBaseId, setDuplicateBaseId] = useState('');
-  const [duplicateBasePregunta, setDuplicateBasePregunta] = useState(null);
-  const [duplicateSimilar, setDuplicateSimilar] = useState([]);
+  const [duplicateGroups, setDuplicateGroups] = useState([]);
   const [duplicateThreshold, setDuplicateThreshold] = useState(0.4);
-  const [duplicateLimit, setDuplicateLimit] = useState(20);
+  const [duplicateLimit, setDuplicateLimit] = useState(50);
   const [duplicateLoading, setDuplicateLoading] = useState(false);
-  const [mergeSelection, setMergeSelection] = useState([]);
-  const [mergeMasterId, setMergeMasterId] = useState('');
 
   useEffect(() => {
     loadOposiciones();
@@ -115,7 +110,7 @@ export const useAdminPreguntasLogic = () => {
 
   useEffect(() => {
     if (tabValue === 3) {
-      loadDuplicateCandidates();
+      handleScanDuplicates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabValue, duplicateTemaFilter]);
@@ -275,20 +270,24 @@ export const useAdminPreguntasLogic = () => {
     }
   };
 
-  const loadDuplicateCandidates = async () => {
+  const handleScanDuplicates = async () => {
     try {
       setDuplicateLoading(true);
-      const params = { limit: 200 };
+      const params = {
+        threshold: duplicateThreshold,
+        limit: duplicateLimit,
+      };
       if (duplicateTemaFilter) {
         params.temaId = duplicateTemaFilter;
       }
-      const response = await preguntasService.getAll(params);
-      const data = response.data?.preguntas || response.preguntas || [];
-      setDuplicateCandidates(Array.isArray(data) ? data : []);
+      const response = await preguntasService.scanDuplicates(params);
+      const groups = response.data?.groups || response.groups || [];
+      setDuplicateGroups(Array.isArray(groups) ? groups : []);
+      setError(null);
     } catch (err) {
       console.error(err);
-      setDuplicateCandidates([]);
-      setError('Error al cargar preguntas para duplicados');
+      setDuplicateGroups([]);
+      setError(err.response?.data?.message || 'Error al buscar duplicados');
     } finally {
       setDuplicateLoading(false);
     }
@@ -606,74 +605,43 @@ export const useAdminPreguntasLogic = () => {
     setExpandedReports((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const handleFetchSimilarDuplicates = async () => {
-    if (!duplicateBaseId) {
-      setError('Selecciona la pregunta base');
-      return;
-    }
-
+  const handleMarkFalsePositive = async (baseId, similarIds) => {
+    if (!baseId || !Array.isArray(similarIds) || similarIds.length === 0) return;
     try {
       setDuplicateLoading(true);
-      const response = await preguntasService.getSimilar(duplicateBaseId, {
-        threshold: duplicateThreshold,
-        limit: duplicateLimit,
-      });
-      const base = response.data?.base || response.base || null;
-      const similar = response.data?.similar || response.similar || [];
-      setDuplicateBasePregunta(base);
-      setDuplicateSimilar(Array.isArray(similar) ? similar : []);
-      setMergeMasterId(base?.id || duplicateBaseId);
-      setMergeSelection(
-        (Array.isArray(similar) ? similar : [])
-          .map((s) => s.pregunta?.id)
-          .filter(Boolean)
-      );
-      setError(null);
-    } catch (err) {
-      console.error(err);
-      setDuplicateSimilar([]);
-      setMergeSelection([]);
-      setError(err.response?.data?.message || 'Error al buscar duplicados');
-    } finally {
-      setDuplicateLoading(false);
-    }
-  };
-
-  const handleMarkFalsePositive = async (otherId) => {
-    if (!duplicateBaseId || !otherId) return;
-    try {
-      setDuplicateLoading(true);
-      await preguntasService.markDuplicateFalsePositive(duplicateBaseId, otherId);
-      setDuplicateSimilar((prev) => prev.filter((s) => s.pregunta?.id !== otherId));
-      setSuccess('Marcado como no duplicada');
+      // Marcar cada par como falso positivo
+      for (const similarId of similarIds) {
+        await preguntasService.markDuplicateFalsePositive(baseId, similarId);
+      }
+      setSuccess('Marcado como no duplicadas');
       setTimeout(() => setSuccess(null), 3000);
+      // Refrescar el escaneo para actualizar la lista
+      await handleScanDuplicates();
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'No se pudo marcar como no duplicada');
+      setError(err.response?.data?.message || 'No se pudo marcar como no duplicadas');
     } finally {
       setDuplicateLoading(false);
     }
   };
 
-  const handleMergeDuplicates = async () => {
-    const duplicatesToMerge = mergeSelection.filter((id) => id && id !== mergeMasterId);
-
-    if (!mergeMasterId || duplicatesToMerge.length === 0) {
-      setError('Selecciona la pregunta maestra y al menos un duplicado');
+  const handleMergeGroup = async (masterPreguntaId, duplicateIds) => {
+    if (!masterPreguntaId || !Array.isArray(duplicateIds) || duplicateIds.length === 0) {
+      setError('Falta seleccionar la maestra y duplicadas');
       return;
     }
 
     try {
       setDuplicateLoading(true);
       await preguntasService.mergeDuplicates({
-        masterPreguntaId: mergeMasterId,
-        duplicateIds: duplicatesToMerge,
+        masterPreguntaId,
+        duplicateIds,
         mergeStrategy: 'KEEP_MASTER',
       });
-      setSuccess('Preguntas unificadas');
-      setDuplicateSimilar((prev) => prev.filter((s) => !duplicatesToMerge.includes(s.pregunta?.id)));
-      setMergeSelection([]);
+      setSuccess(`${duplicateIds.length} preguntas unificadas correctamente`);
       setTimeout(() => setSuccess(null), 3000);
+      // Refrescar el escaneo para que desaparezcan las fusionadas
+      await handleScanDuplicates();
       loadPreguntas();
     } catch (err) {
       console.error(err);
@@ -766,20 +734,12 @@ export const useAdminPreguntasLogic = () => {
     // Duplicados
     duplicateTemaFilter,
     setDuplicateTemaFilter,
-    duplicateCandidates,
-    duplicateBaseId,
-    setDuplicateBaseId,
-    duplicateBasePregunta,
-    duplicateSimilar,
+    duplicateGroups,
     duplicateThreshold,
     setDuplicateThreshold,
     duplicateLimit,
     setDuplicateLimit,
     duplicateLoading,
-    mergeSelection,
-    setMergeSelection,
-    mergeMasterId,
-    setMergeMasterId,
 
     // Handlers
     handleBulkMove,
@@ -796,9 +756,8 @@ export const useAdminPreguntasLogic = () => {
     toggleOne,
     handleImageFileChange,
     loadReports,
-    loadDuplicateCandidates,
-    handleFetchSimilarDuplicates,
+    handleScanDuplicates,
     handleMarkFalsePositive,
-    handleMergeDuplicates,
+    handleMergeGroup,
   };
 };

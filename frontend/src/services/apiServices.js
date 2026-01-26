@@ -92,6 +92,11 @@ export const preguntasService = {
     return response.data;
   },
 
+  async scanDuplicates(params = {}) {
+    const response = await apiClient.get('/preguntas/duplicates/scan', { params });
+    return response.data;
+  },
+
   async markDuplicateFalsePositive(preguntaAId, preguntaBId) {
     const response = await apiClient.post('/preguntas/duplicates/false-positive', {
       preguntaAId,

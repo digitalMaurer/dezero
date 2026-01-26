@@ -6,6 +6,7 @@ import {
   getPreguntas,
   getPregunta,
   getSimilarPreguntas,
+  scanDuplicatePreguntas,
   createPregunta,
   updatePregunta,
   deletePregunta,
@@ -50,6 +51,7 @@ const upload = multer({
 
 router.get('/', getPreguntas);
 router.get('/random', authMiddleware, generateRandomTest);
+router.get('/duplicates/scan', authMiddleware, adminMiddleware, scanDuplicatePreguntas);
 router.post('/duplicates/false-positive', authMiddleware, adminMiddleware, markDuplicateFalsePositive);
 router.post('/duplicates/merge', authMiddleware, adminMiddleware, mergePreguntas);
 router.get('/:id', getPregunta);

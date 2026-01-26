@@ -19,9 +19,35 @@ export const getOposiciones = async (req, res, next) => {
       },
     });
 
+    // Enriquecer con conteos de activas y duplicadas
+    const enrichedOposiciones = await Promise.all(oposiciones.map(async (op) => {
+      const totalActive = await prisma.pregunta.count({
+        where: {
+          tema: { oposicionId: op.id },
+          duplicateStatus: 'ACTIVE'
+        }
+      });
+      
+      const totalDuplicated = await prisma.pregunta.count({
+        where: {
+          tema: { oposicionId: op.id },
+          duplicateStatus: 'DUPLICATED'
+        }
+      });
+
+      return {
+        ...op,
+        _count: {
+          preguntas: totalActive,
+          preguntasTotal: totalActive + totalDuplicated,
+          preguntasDuplicated: totalDuplicated
+        }
+      };
+    }));
+
     res.json({
       success: true,
-      data: { oposiciones },
+      data: { oposiciones: enrichedOposiciones },
     });
   } catch (error) {
     next(error);

@@ -86,13 +86,14 @@ const getDueQuestionsForTemas = async (req, res) => {
       });
     }
 
-    // Obtener todas las preguntas de esos temas
+    // Obtener todas las preguntas de esos temas (solo activas, no duplicadas)
     const preguntas = await prisma.pregunta.findMany({
       where: {
         temaId: {
           in: temasIds
         },
-        status: 'PUBLISHED'
+        status: 'PUBLISHED',
+        duplicateStatus: 'ACTIVE'  // Solo preguntas activas
       },
       include: {
         tema: {
@@ -133,7 +134,8 @@ const getAnkiStatsByOposicion = async (req, res) => {
         tema: {
           oposicionId: id
         },
-        status: 'PUBLISHED'
+        status: 'PUBLISHED',
+        duplicateStatus: 'ACTIVE'  // Solo preguntas activas
       }
     });
 
