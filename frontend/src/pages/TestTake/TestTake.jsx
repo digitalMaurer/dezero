@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTestTimer } from './hooks/useTestTimer';
+import { testsService } from '../../services/apiServices';
 import {
   Box,
   Button,
@@ -66,6 +67,7 @@ export const TestTake = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [viewMode, setViewMode] = useState('list'); // 'list' o 'single'
   const [error, setError] = useState(null);
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   // Hook específico para MANICOMIO
   const manicomioLogic = useManicomioLogic(
@@ -224,6 +226,28 @@ export const TestTake = () => {
     setViewMode(prev => prev === 'list' ? 'single' : 'list');
   };
 
+  const handleExportPDF = async () => {
+    try {
+      setExportingPDF(true);
+      const response = await testsService.exportAttemptToPDF(attemptId, false);
+      
+      // Crear blob y descargar
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `test-${attemptId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error al exportar PDF:', err);
+      setError('No se pudo exportar el PDF. Intenta de nuevo.');
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
   useEffect(() => {
     if (isSequential && viewMode !== 'single') {
       setViewMode('single');
@@ -294,8 +318,10 @@ export const TestTake = () => {
         <TestActionsBar
           onSurrender={() => setOpenSurrenderDialog(true)}
           onDelete={() => setOpenDeleteDialog(true)}
+          onExportPDF={handleExportPDF}
           surrendering={surrendering}
           deleting={deleting}
+          exportingPDF={exportingPDF}
         />
 
         {/* Mensajes de error */}

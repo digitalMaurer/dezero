@@ -1,12 +1,15 @@
-// TestActionsBar: muestra acciones principales del test (rendirse y eliminar en curso) con tooltips
+// TestActionsBar: muestra acciones principales del test (rendirse, eliminar y exportar PDF) con tooltips
 import React from 'react';
-import { Box, Button, Tooltip } from '@mui/material';
+import { Box, Button, Tooltip, CircularProgress } from '@mui/material';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 
 export const TestActionsBar = ({
   onSurrender,
   onDelete,
+  onExportPDF,
   surrendering,
   deleting,
+  exportingPDF,
 }) => {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
@@ -33,6 +36,20 @@ export const TestActionsBar = ({
             disabled={deleting}
           >
             {deleting ? 'Eliminando...' : '🗑️ Eliminar Test'}
+          </Button>
+        </span>
+      </Tooltip>
+      <Tooltip title="Descargar test como PDF">
+        <span>
+          <Button
+            variant="outlined"
+            color="info"
+            size="small"
+            onClick={onExportPDF}
+            disabled={exportingPDF}
+            startIcon={exportingPDF ? <CircularProgress size={18} /> : <PictureAsPdfIcon />}
+          >
+            {exportingPDF ? 'Exportando...' : '📄 Exportar PDF'}
           </Button>
         </span>
       </Tooltip>

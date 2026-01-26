@@ -5,6 +5,7 @@ import {
   finishTestAttempt,
   getTestAttempt,
   deleteTestAttempt,
+  exportTestToPDF,
 } from '../controllers/tests/attemptsController.js';
 import {
   answerQuestionManicomio,
@@ -24,6 +25,7 @@ router.post('/attempts/:id/finish', authMiddleware, finishTestAttempt);
 router.post('/attempts/:id/answer', authMiddleware, answerQuestionManicomio);
 router.get('/attempts/:id/next-question', authMiddleware, getNextManicomioQuestion);
 router.get('/attempts/:id', authMiddleware, getTestAttempt);
+router.get('/attempts/:id/export-pdf', authMiddleware, exportTestToPDF);
 router.delete('/attempts/:id', authMiddleware, deleteTestAttempt);
 router.get('/history', authMiddleware, getUserTestHistory);
 router.get('/stats', authMiddleware, getUserStats);

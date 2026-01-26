@@ -182,6 +182,14 @@ export const testsService = {
     const response = await apiClient.get('/tests/stats');
     return response.data;
   },
+
+  async exportAttemptToPDF(attemptId, withAnswers = false) {
+    const response = await apiClient.get(`/tests/attempts/${attemptId}/export-pdf`, {
+      params: { withAnswers: withAnswers ? 'true' : 'false' },
+      responseType: 'blob',
+    });
+    return response;
+  },
 };
 
 export const reportsService = {

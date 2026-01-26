@@ -4,6 +4,7 @@ import { logger } from '../../utils/logger.js';
 import { shuffleQuestionOptions } from '../../utils/shuffleUtils.js';
 import { selectQuestionsForAttempt } from '../../services/questionSelector.js';
 import { shuffleArray } from '../../utils/shuffleUtils.js';
+import { generateTestPDF } from '../../services/pdfGenerator.js';
 
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
@@ -412,6 +413,81 @@ export const getTestAttempt = async (req, res, next) => {
       success: true,
       data: { attempt: attemptWithShuffled },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Exportar test a PDF
+export const exportTestToPDF = async (req, res, next) => {
+  try {
+    const { testId } = req.params;
+    const { withAnswers = false } = req.query;
+
+    if (!testId) {
+      throw new AppError('testId es requerido', 400);
+    }
+
+    // Obtener test con preguntas
+    const test = await prisma.test.findUnique({
+      where: { id: testId },
+      include: {
+        questions: {
+          include: {
+            pregunta: {
+              include: {
+                tema: {
+                  include: {
+                    oposicion: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            orden: 'asc',
+          },
+        },
+      },
+    });
+
+    if (!test) {
+      throw new AppError('Test no encontrado', 404);
+    }
+
+    // Extraer preguntas con oposicion desde tema
+    const preguntas = test.questions.map((q) => ({
+      ...q.pregunta,
+      oposicion: q.pregunta.tema?.oposicion || null,
+    }));
+
+    if (preguntas.length === 0) {
+      throw new AppError('El test no tiene preguntas', 400);
+    }
+
+    // Generar PDF
+    const doc = generateTestPDF(
+      {
+        ...test,
+        oposicion: preguntas[0]?.oposicion || null,
+      },
+      preguntas,
+      {
+        withAnswers: withAnswers === 'true',
+      }
+    );
+
+    // Configurar headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="test-${testId}.pdf"`
+    );
+
+    // Pipe del PDF al response
+    doc.pipe(res);
+
+    logger.info(`✅ PDF generado para test ${testId}`);
   } catch (error) {
     next(error);
   }
