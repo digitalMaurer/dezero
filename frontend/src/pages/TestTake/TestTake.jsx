@@ -236,7 +236,7 @@ export const TestTake = () => {
         return;
       }
       
-      const response = await testsService.exportAttemptToPDF(attemptId, false);
+      const response = await testsService.exportAttemptToPDF(attemptId, true);
       
       // Crear blob y descargar
       const url = window.URL.createObjectURL(new Blob([response.data]));
