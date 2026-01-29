@@ -251,15 +251,6 @@ export const AdminPreguntasReports = ({
                         </Button>
                         <Button
                           variant="outlined"
-                          color="success"
-                          size="small"
-                          onClick={() => handleResolveReport(report.id)}
-                          disabled={report.estado === 'RESUELTO'}
-                        >
-                          Resolver
-                        </Button>
-                        <Button
-                          variant="outlined"
                           color="error"
                           size="small"
                           onClick={() => handleDeleteReport(report.id)}

@@ -25,14 +25,17 @@ export function generateTestPDF(test, preguntas, options = {}) {
   addCover(doc, test, preguntas, PAGE_WIDTH);
 
   // =========== PÁGINAS SIGUIENTES: PREGUNTAS ===========
+  doc.addPage();
   preguntas.forEach((pregunta, index) => {
-    doc.addPage();
     addPregunta(doc, pregunta, index + 1, PAGE_WIDTH, MARGIN_LEFT, withAnswers);
   });
 
-  // =========== ÚLTIMA PÁGINA: PLANTILLA DE RESPUESTAS ===========
-  doc.addPage();
-  addPlantillaRespuestas(doc, preguntas.length, PAGE_WIDTH, MARGIN_LEFT);
+
+  // =========== TABLA CON RESPUESTAS CORRECTAS (solo si withAnswers) ===========
+  if (withAnswers) {
+    doc.addPage();
+    addTablaRespuestasCorrectas(doc, preguntas, PAGE_WIDTH, MARGIN_LEFT);
+  }
 
   doc.end();
   return doc;
@@ -105,20 +108,26 @@ function addPregunta(doc, pregunta, numero, pageWidth, marginLeft, withAnswers) 
     doc.y = 100;
   }
 
+  // Verificar si necesitamos nueva página
+  if (doc.y > 680) {
+    doc.addPage();
+    doc.y = 80;
+  }
+
   // Número de pregunta
-  doc.fontSize(14).font('Helvetica-Bold').fillColor('#000000')
+  doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000')
     .text(`${numero})`, marginLeft, doc.y);
 
-  doc.moveDown(0.2);
+  doc.moveDown(0.3);
 
-  // Enunciado
-  doc.fontSize(11).font('Helvetica').fillColor('#000000')
+  // Enunciado en negrita
+  doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000')
     .text(pregunta.enunciado || 'Sin enunciado', marginLeft, doc.y, {
       width: pageWidth,
       align: 'left',
     });
 
-  doc.moveDown(0.8);
+  doc.moveDown(0.5);
 
   // Opciones
   const opciones = [
@@ -131,19 +140,14 @@ function addPregunta(doc, pregunta, numero, pageWidth, marginLeft, withAnswers) 
   opciones.forEach((opcion) => {
     if (!opcion.texto) return;
 
-    const isCorrect = withAnswers && pregunta.respuestaCorrecta === opcion.letra;
-    const checkbox = isCorrect ? '✓' : '☐';
-    const color = isCorrect ? '#00aa00' : '#000000';
-
     const currentY = doc.y || 100;
 
-    doc.fontSize(10).font('Helvetica')
-      .fillColor(color)
-      .text(`${opcion.letra}) ${checkbox}  ${opcion.texto}`, marginLeft, currentY, {
+    doc.fontSize(10).font('Helvetica').fillColor('#000000')
+      .text(`${opcion.letra}) ${opcion.texto}`, marginLeft, currentY, {
         width: pageWidth - 20,
       });
 
-    doc.moveDown(0.4);
+    doc.moveDown(0.3);
   });
 
   // Imagen si existe
@@ -166,25 +170,26 @@ function addPregunta(doc, pregunta, numero, pageWidth, marginLeft, withAnswers) 
 
   // Tema en footer
   if (pregunta.tema?.nombre) {
-    doc.moveDown(1);
+    doc.moveDown(0.3);
     const temaY = doc.y || 100;
-    doc.fontSize(8).font('Helvetica').fillColor('#999999')
+    doc.fontSize(7).font('Helvetica').fillColor('#999999')
       .text(`Tema: ${pregunta.tema.nombre}`, marginLeft, temaY);
   }
 
-  // Separador
-  doc.moveDown(1);
+  // Separador ligero
+  doc.moveDown(0.5);
   const lineY = doc.y || 100;
-  doc.strokeColor('#e0e0e0').lineWidth(0.5)
+  doc.strokeColor('#e0e0e0').lineWidth(0.3)
     .moveTo(marginLeft, lineY)
     .lineTo(marginLeft + pageWidth, lineY)
     .stroke();
 
   doc.moveDown(0.5);
 
-  // Salto de página si se acerca al final
-  if (doc.y > 700) {
+  // Verificar si necesitamos nueva página para la siguiente pregunta
+  if (doc.y > 680) {
     doc.addPage();
+    doc.y = 80;
   }
 }
 
@@ -261,6 +266,81 @@ function addPlantillaRespuestas(doc, totalPreguntas, pageWidth, marginLeft) {
         const boxX = col2X + 25 + j * 20;
         doc.rect(boxX, currentY, 12, 12).stroke();
       }
+    }
+
+    currentY += rowHeight;
+  }
+}
+
+/**
+ * Añade tabla con respuestas correctas (solo cuando withAnswers=true)
+ */
+function addTablaRespuestasCorrectas(doc, preguntas, pageWidth, marginLeft) {
+  // Resetear posición al inicio de la página
+  doc.y = 100;
+
+  doc.fontSize(16).font('Helvetica-Bold').fillColor('#000000')
+    .text('RESPUESTAS CORRECTAS', marginLeft, doc.y, { align: 'center', width: pageWidth });
+
+  doc.moveDown(1.5);
+
+  // Tabla con 2 columnas
+  const rowHeight = 16;
+  const col1X = marginLeft + 80;
+  const col2X = marginLeft + pageWidth / 2 + 60;
+  const colWidth = 120;
+
+  let currentY = doc.y || 150;
+
+  // Header
+  doc.fontSize(10).font('Helvetica-Bold').fillColor('#000000');
+  
+  // Columna 1 header
+  doc.rect(col1X, currentY, 50, 18).stroke();
+  doc.rect(col1X + 50, currentY, 70, 18).stroke();
+  doc.text('Pregunta', col1X + 5, currentY + 4, { width: 40 });
+  doc.text('Respuesta', col1X + 55, currentY + 4, { width: 60 });
+
+  // Columna 2 header
+  doc.rect(col2X, currentY, 50, 18).stroke();
+  doc.rect(col2X + 50, currentY, 70, 18).stroke();
+  doc.text('Pregunta', col2X + 5, currentY + 4, { width: 40 });
+  doc.text('Respuesta', col2X + 55, currentY + 4, { width: 60 });
+
+  currentY += 18;
+
+  // Filas con respuestas
+  const numPerCol = Math.ceil(preguntas.length / 2);
+
+  for (let i = 0; i < numPerCol; i++) {
+    // Verificar si necesitamos nueva página
+    if (currentY > 750) {
+      doc.addPage();
+      currentY = 80;
+    }
+
+    doc.fontSize(9).font('Helvetica').fillColor('#000000');
+
+    // Columna 1
+    if (i < preguntas.length) {
+      const num1 = i + 1;
+      const respuesta1 = preguntas[i].respuestaCorrecta || '-';
+      
+      doc.rect(col1X, currentY, 50, rowHeight).stroke();
+      doc.rect(col1X + 50, currentY, 70, rowHeight).stroke();
+      doc.text(num1.toString(), col1X + 15, currentY + 3, { width: 30 });
+      doc.text(respuesta1, col1X + 70, currentY + 3, { width: 50 });
+    }
+
+    // Columna 2
+    if (i + numPerCol < preguntas.length) {
+      const num2 = i + numPerCol + 1;
+      const respuesta2 = preguntas[i + numPerCol].respuestaCorrecta || '-';
+      
+      doc.rect(col2X, currentY, 50, rowHeight).stroke();
+      doc.rect(col2X + 50, currentY, 70, rowHeight).stroke();
+      doc.text(num2.toString(), col2X + 15, currentY + 3, { width: 30 });
+      doc.text(respuesta2, col2X + 70, currentY + 3, { width: 50 });
     }
 
     currentY += rowHeight;

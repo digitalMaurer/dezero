@@ -24,6 +24,7 @@ import { AdminPreguntas } from './pages/AdminPreguntas';
 import { AdminTemas } from './pages/AdminTemas';
 import { AdminOposiciones } from './pages/AdminOposiciones';
 import { NotFound } from './pages/NotFound';
+import OtrasUtilidades from './pages/OtrasUtilidades';
 
 const getTheme = (darkMode) =>
   createTheme({
@@ -158,6 +159,14 @@ const router = createBrowserRouter(
           <AdminRoute>
             <AdminOposiciones />
           </AdminRoute>
+        }
+      />
+      <Route
+        path="utilidades"
+        element={
+          <ProtectedRoute>
+            <OtrasUtilidades />
+          </ProtectedRoute>
         }
       />
       <Route index element={<Navigate to="/dashboard" replace />} />

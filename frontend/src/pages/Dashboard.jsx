@@ -87,10 +87,10 @@ export const Dashboard = () => {
       icon: '📊',
     },
     {
-      title: 'Preguntas',
-      description: 'Gestiona las preguntas del sistema',
-      path: '/preguntas',
-      icon: '❓',
+      title: 'Otras utilidades',
+      description: 'Herramientas y utilidades adicionales',
+      path: '/utilidades',
+      icon: '🛠️',
     },
   ];
 

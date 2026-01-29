@@ -1,5 +1,15 @@
 # Changelog
 
+
+## 2026-01-29
+
+### Resolución rápida de reportes desde edición de preguntas
+- **Frontend**:
+  - Al editar una pregunta desde un reporte, tras guardar, aparece un modal de confirmación "¿Ha resuelto el reporte?".
+  - Si el usuario confirma, el reporte se elimina automáticamente.
+  - El flujo no afecta la gestión normal de preguntas ni otros apartados.
+  - Corrección de integración y feedback visual para admins.
+
 ## 2026-01-26 (Sesión actual - continuación)
 
 ### Exportación de Tests a PDF
@@ -175,7 +185,7 @@
 fc0ff78 feat: Exportación de tests a PDF
 cd4ef7b feat: Sistema duplicados - UI Dialog, filtrado global y auto-refresh
 aeb37a0 feat: Sistema de duplicados - detección, merge y falsos positivos
-77cd81a feat(manicomio): mostrar tip/explicacion y editar tip en modal
+&77cd81a feat(manicomio): mostrar tip/explicacion y editar tip en modal
 29bf835 feat(db): agregar campo tip a modelo Pregunta
 ae949dc docs: agregar comentarios de mejoras futuras y README centralizado
 0f80bb5 refactor(frontend): rediseñar TestCreate con flujo multi-paso

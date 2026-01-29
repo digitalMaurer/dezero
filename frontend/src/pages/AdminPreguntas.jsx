@@ -1,5 +1,5 @@
-﻿import React from 'react';
-import { Container, Box, Typography, Alert, Tabs, Tab } from '@mui/material';
+﻿import React, { useState } from 'react';
+import { Container, Box, Typography, Alert, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 import { AdminPreguntasReports } from './AdminPreguntasReports';
 import { AdminPreguntasImportText } from './AdminPreguntasImportText';
 import { AdminPreguntasImportImage } from './AdminPreguntasImportImage';
@@ -10,6 +10,8 @@ import { AdminPreguntasDuplicates } from './AdminPreguntasDuplicates';
 import { useAdminPreguntasLogic } from '../hooks/useAdminPreguntasLogic';
 
 export const AdminPreguntas = () => {
+  const [showResolveModal, setShowResolveModal] = useState(false);
+  const [reportToResolve, setReportToResolve] = useState(null);
   const {
     tabValue,
     setTabValue,
@@ -234,14 +236,21 @@ export const AdminPreguntas = () => {
 
       <AdminPreguntasEditDialog
         open={openEditDialog}
-        onClose={() => setOpenEditDialog(false)}
+        onClose={() => {
+          setOpenEditDialog(false);
+          setReportToResolve(null);
+        }}
         editingPregunta={editingPregunta}
         setEditingPregunta={setEditingPregunta}
         temasEdicion={temasEdicion}
-        onSave={handleEditSave}
+        onSave={async () => {
+          await handleEditSave();
+          if (reportToResolve) setShowResolveModal(true);
+        }}
         onDelete={async (id) => {
           await handleDelete(id);
           setOpenEditDialog(false);
+          setReportToResolve(null);
         }}
       />
 
@@ -249,8 +258,43 @@ export const AdminPreguntas = () => {
         open={openViewReportDialog}
         viewingReport={viewingReport}
         onClose={handleCloseReportDialog}
-        onEdit={handleEditFromReport}
+        onEdit={(report) => {
+          setReportToResolve(report.id);
+          handleEditFromReport();
+        }}
+        onDeleteQuestion={async (preguntaId) => {
+          await handleDelete(preguntaId);
+          handleCloseReportDialog();
+          loadReports();
+        }}
+        onRemoveReport={async (reportId) => {
+          await handleDeleteReport(reportId);
+          handleCloseReportDialog();
+          loadReports();
+        }}
       />
+
+      {/* Modal de confirmación post-edición */}
+      <Dialog open={showResolveModal} onClose={() => setShowResolveModal(false)}>
+        <DialogTitle>¿Ha resuelto el reporte?</DialogTitle>
+        <DialogContent>
+          <Typography>¿Deseas marcar el reporte como resuelto y eliminarlo?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowResolveModal(false)} color="inherit">No</Button>
+          <Button
+            onClick={async () => {
+              await handleDeleteReport(reportToResolve);
+              setShowResolveModal(false);
+              setReportToResolve(null);
+            }}
+            color="primary"
+            variant="contained"
+          >
+            Sí, eliminar reporte
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

@@ -8,11 +8,19 @@ import {
   Typography,
   Chip,
   Button,
+  Stack,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import { getDifficultyLabel, getDifficultyColor } from '../utils/difficulty';
 
-export const AdminPreguntasReportDialog = ({ open, viewingReport, onClose, onEdit }) => {
+export const AdminPreguntasReportDialog = ({
+  open,
+  viewingReport,
+  onClose,
+  onEdit,
+  onDeleteQuestion,
+  onRemoveReport,
+}) => {
   if (!viewingReport) {
     return null;
   }
@@ -27,6 +35,20 @@ export const AdminPreguntasReportDialog = ({ open, viewingReport, onClose, onEdi
   };
 
   const pregunta = viewingReport.pregunta;
+
+  const handleDeleteQuestion = async () => {
+    if (!pregunta?.id) return;
+    if (window.confirm('¿Seguro que quieres eliminar la pregunta y todos sus reportes?')) {
+      await onDeleteQuestion?.(pregunta.id);
+    }
+  };
+
+  const handleRemoveReport = async () => {
+    if (!viewingReport?.id) return;
+    if (window.confirm('¿Seguro que quieres quitar solo este reporte?')) {
+      await onRemoveReport?.(viewingReport.id);
+    }
+  };
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
@@ -63,39 +85,40 @@ export const AdminPreguntasReportDialog = ({ open, viewingReport, onClose, onEdi
               {pregunta?.enunciado}
             </Typography>
 
+
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mb: 2 }}>
               <Box>
                 <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Opción A:</Typography>
                 <Typography variant="body2" sx={{ p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
-                  {pregunta?.opcionA}
+                  {pregunta?.opcionA ? pregunta.opcionA : <span style={{ color: '#aaa' }}>Sin definir</span>}
                 </Typography>
               </Box>
               <Box>
                 <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Opción B:</Typography>
                 <Typography variant="body2" sx={{ p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
-                  {pregunta?.opcionB}
+                  {pregunta?.opcionB ? pregunta.opcionB : <span style={{ color: '#aaa' }}>Sin definir</span>}
                 </Typography>
               </Box>
               <Box>
                 <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Opción C:</Typography>
                 <Typography variant="body2" sx={{ p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
-                  {pregunta?.opcionC}
+                  {pregunta?.opcionC ? pregunta.opcionC : <span style={{ color: '#aaa' }}>Sin definir</span>}
                 </Typography>
               </Box>
-              {pregunta?.opcionD && (
-                <Box>
-                  <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Opción D:</Typography>
-                  <Typography variant="body2" sx={{ p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
-                    {pregunta?.opcionD}
-                  </Typography>
-                </Box>
-              )}
+              <Box>
+                <Typography variant="caption" sx={{ fontWeight: 'bold' }}>Opción D:</Typography>
+                <Typography variant="body2" sx={{ p: 1, bgcolor: 'white', borderRadius: 0.5 }}>
+                  {pregunta?.opcionD ? pregunta.opcionD : <span style={{ color: '#aaa' }}>Sin definir</span>}
+                </Typography>
+              </Box>
             </Box>
 
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              <strong>Respuesta Correcta:</strong>{' '}
-              <Chip label={pregunta?.respuestaCorrecta} color="success" size="small" />
-            </Typography>
+            {pregunta?.respuestaCorrecta && (
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Respuesta Correcta:</strong>{' '}
+                <Chip label={pregunta.respuestaCorrecta} color="success" size="small" />
+              </Typography>
+            )}
 
             {pregunta?.explicacion && (
               <>
@@ -121,10 +144,18 @@ export const AdminPreguntasReportDialog = ({ open, viewingReport, onClose, onEdi
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>Cerrar</Button>
-        <Button variant="contained" onClick={handleEditClick} startIcon={<EditIcon />} disabled={!pregunta?.id}>
-          Editar Pregunta
-        </Button>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: '100%' }}>
+          <Button onClick={handleClose} color="inherit">Cerrar</Button>
+          <Button variant="contained" onClick={handleEditClick} startIcon={<EditIcon />} disabled={!pregunta?.id}>
+            Editar Pregunta
+          </Button>
+          <Button color="error" variant="outlined" onClick={handleDeleteQuestion} disabled={!pregunta?.id}>
+            Eliminar Pregunta
+          </Button>
+          <Button color="warning" variant="outlined" onClick={handleRemoveReport}>
+            Quitar Reporte
+          </Button>
+        </Stack>
       </DialogActions>
     </Dialog>
   );
