@@ -111,6 +111,7 @@ export const createPregunta = async (req, res, next) => {
       respuestaCorrecta,
       explicacion,
       tip,
+      esOficial,
       dificultad = 'MEDIUM',
       status = 'DRAFT',
       temaId,
@@ -128,6 +129,10 @@ export const createPregunta = async (req, res, next) => {
 
     if (!['EASY', 'MEDIUM', 'HARD', 'ULTRAHARD'].includes(dificultad)) {
       throw new AppError('Dificultad debe ser EASY, MEDIUM, HARD o ULTRAHARD', 400);
+    }
+
+    if (typeof esOficial !== 'undefined' && typeof esOficial !== 'boolean') {
+      throw new AppError('esOficial debe ser boolean', 400);
     }
 
     // Verificar que el tema existe
@@ -150,6 +155,7 @@ export const createPregunta = async (req, res, next) => {
         respuestaCorrecta,
         explicacion,
         tip,
+        esOficial,
         dificultad,
         status,
         temaId,
@@ -338,6 +344,10 @@ export const updatePregunta = async (req, res, next) => {
     // Validar dificultad si se envía
     if (updateData.dificultad && !['EASY', 'MEDIUM', 'HARD', 'ULTRAHARD'].includes(updateData.dificultad)) {
       throw new AppError('Dificultad debe ser EASY, MEDIUM, HARD o ULTRAHARD', 400);
+    }
+
+    if (typeof updateData.esOficial !== 'undefined' && typeof updateData.esOficial !== 'boolean') {
+      throw new AppError('esOficial debe ser boolean', 400);
     }
 
     // Asegurar que el campo tip pueda actualizarse sin restricciones adicionales

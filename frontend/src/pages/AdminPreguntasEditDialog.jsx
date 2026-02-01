@@ -10,6 +10,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  FormControlLabel,
+  Checkbox,
   Button,
 } from '@mui/material';
 
@@ -62,6 +64,16 @@ export const AdminPreguntasEditDialog = ({
                 ))}
               </Select>
             </FormControl>
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={!!editingPregunta.esOficial}
+                  onChange={(e) => setEditingPregunta({ ...editingPregunta, esOficial: e.target.checked })}
+                />
+              }
+              label="Es oficial"
+            />
 
             <TextField
               label="Opción A"

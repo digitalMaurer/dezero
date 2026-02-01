@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTestTimer } from './hooks/useTestTimer';
-import { testsService } from '../../services/apiServices';
+import { testsService, preguntasService } from '../../services/apiServices';
 import {
   Box,
   Button,
@@ -26,6 +26,7 @@ import { QuestionActions } from './components/QuestionActions';
 import { TestTakeDialogs } from './components/TestTakeDialogs';
 import { TestActionsBar } from './components/TestActionsBar';
 import { useUIStore } from '../../store/uiStore';
+import { useAuthStore } from '../../store/authStore';
 import { safeSetItem } from '../../utils/localStorageManager';
 
 /**
@@ -51,6 +52,8 @@ export const TestTake = () => {
   const { attemptId } = useParams();
   const navigate = useNavigate();
   const { focusMode } = useUIStore();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'ADMIN';
 
   // Hooks personalizados para la lógica
   const {
@@ -69,6 +72,7 @@ export const TestTake = () => {
   const [error, setError] = useState(null);
   const [exportingPDF, setExportingPDF] = useState(false);
   const [showTema, setShowTema] = useState(true);
+  const [updatingOficialId, setUpdatingOficialId] = useState(null);
 
   // Hook específico para MANICOMIO
   const manicomioLogic = useManicomioLogic(
@@ -85,6 +89,27 @@ export const TestTake = () => {
   const currentQuestion = testData?.preguntas?.[currentQuestionIndex];
   const currentRespuesta = currentQuestion ? respuestas[currentQuestion.id] || '' : '';
   const effectiveViewMode = isSequential ? 'single' : viewMode;
+
+  const handleToggleOficial = async (question) => {
+    if (!question?.id || !isAdmin) return;
+    const nextValue = !question.esOficial;
+    try {
+      setUpdatingOficialId(question.id);
+      await preguntasService.update(question.id, { esOficial: nextValue });
+      setTestData((prev) => {
+        if (!prev) return prev;
+        const updated = (prev.preguntas || []).map((p) =>
+          p.id === question.id ? { ...p, esOficial: nextValue } : p
+        );
+        return { ...prev, preguntas: updated };
+      });
+    } catch (err) {
+      console.error(err);
+      setError('No se pudo actualizar la oficialidad');
+    } finally {
+      setUpdatingOficialId(null);
+    }
+  };
 
   // Timer y estimaciones
   const {
@@ -430,6 +455,9 @@ export const TestTake = () => {
                     isFavorite={favorites[currentQuestion?.id]}
                     onReport={handleReportClick}
                     onToggleFavorite={handleToggleFavorite}
+                    onToggleOficial={handleToggleOficial}
+                    canToggleOficial={isAdmin}
+                    updatingOficial={updatingOficialId === currentQuestion?.id}
                   />
                 </Paper>
               </Grid>
@@ -471,6 +499,9 @@ export const TestTake = () => {
                         setOpenReportDialog(true);
                       }}
                       onToggleFavorite={() => handleToggleFavorite(pregunta.id)}
+                      onToggleOficial={handleToggleOficial}
+                      canToggleOficial={isAdmin}
+                      updatingOficial={updatingOficialId === pregunta.id}
                     />
                   </Paper>
                 ))}

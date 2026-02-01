@@ -415,6 +415,7 @@ export const getNextManicomioQuestion = async (req, res, next) => {
       opcionD: shuffled.opcionD,
       respuestaCorrecta: shuffled.respuestaCorrecta,
       dificultad: selected.dificultad,
+      esOficial: selected.esOficial,
     };
 
     return res.json({

@@ -13,6 +13,7 @@ import {
   Paper,
   ToggleButton,
   ToggleButtonGroup,
+  Chip,
 } from '@mui/material';
 import FlagIcon from '@mui/icons-material/Flag';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
@@ -23,9 +24,31 @@ export const QuestionActions = ({
   isFavorite,
   onReport,
   onToggleFavorite,
+  onToggleOficial,
+  canToggleOficial = false,
+  updatingOficial = false,
 }) => {
   return (
     <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 2 }}>
+      <Tooltip title={canToggleOficial ? 'Cambiar oficialidad' : 'Oficialidad de la pregunta'}>
+        <span>
+          <Chip
+            clickable={canToggleOficial}
+            onClick={canToggleOficial ? () => onToggleOficial?.(currentQuestion) : undefined}
+            label={currentQuestion?.esOficial ? 'Oficial' : 'No oficial'}
+            size="medium"
+            color={currentQuestion?.esOficial ? 'primary' : 'default'}
+            variant={currentQuestion?.esOficial ? 'outlined' : 'filled'}
+            disabled={updatingOficial}
+            sx={{
+              px: 1,
+              fontWeight: 600,
+              borderRadius: 999,
+              boxShadow: currentQuestion?.esOficial ? 1 : 0,
+            }}
+          />
+        </span>
+      </Tooltip>
       <Tooltip title="Reportar problema con esta pregunta">
         <Button
           variant="outlined"

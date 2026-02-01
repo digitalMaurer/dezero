@@ -20,6 +20,8 @@ export const AdminPreguntas = () => {
     success,
     importText,
     setImportText,
+    importIsOfficial,
+    setImportIsOfficial,
     selectedOposicion,
     setSelectedOposicion,
     selectedTema,
@@ -87,6 +89,8 @@ export const AdminPreguntas = () => {
     handleMarkFalsePositive,
     handleMergeGroup,
     handleBulkMove,
+    handleMovePreguntaToTema,
+    handleUpdatePreguntaOficial,
     handleImport,
     handleCreateWithImage,
     handleDelete,
@@ -134,6 +138,8 @@ export const AdminPreguntas = () => {
           <AdminPreguntasImportText
             importText={importText}
             setImportText={setImportText}
+            importIsOfficial={importIsOfficial}
+            setImportIsOfficial={setImportIsOfficial}
             selectedOposicion={selectedOposicion}
             setSelectedOposicion={setSelectedOposicion}
             selectedTema={selectedTema}
@@ -183,6 +189,8 @@ export const AdminPreguntas = () => {
             setTargetTema={setTargetTema}
             targetTemas={targetTemas}
             handleBulkMove={handleBulkMove}
+            handleMovePreguntaToTema={handleMovePreguntaToTema}
+            handleUpdatePreguntaOficial={handleUpdatePreguntaOficial}
             selectedIds={selectedIds}
             loading={loading}
             toggleAll={toggleAll}

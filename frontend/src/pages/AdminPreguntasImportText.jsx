@@ -10,12 +10,16 @@ import {
   TextField,
   Button,
   Alert,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 export const AdminPreguntasImportText = ({
   importText,
   setImportText,
+  importIsOfficial,
+  setImportIsOfficial,
   selectedOposicion,
   setSelectedOposicion,
   selectedTema,
@@ -102,6 +106,17 @@ export const AdminPreguntasImportText = ({
           </Select>
         </FormControl>
       </Box>
+
+      <FormControlLabel
+        sx={{ mb: 2 }}
+        control={
+          <Checkbox
+            checked={importIsOfficial}
+            onChange={(e) => setImportIsOfficial(e.target.checked)}
+          />
+        }
+        label="Marcar todas como oficiales"
+      />
 
       <TextField
         fullWidth

@@ -10,6 +10,7 @@ export const useAdminPreguntasLogic = () => {
 
   // Estados para importación
   const [importText, setImportText] = useState('');
+  const [importIsOfficial, setImportIsOfficial] = useState(false);
   const [selectedOposicion, setSelectedOposicion] = useState('');
   const [selectedTema, setSelectedTema] = useState('');
 
@@ -166,6 +167,44 @@ export const useAdminPreguntasLogic = () => {
       await loadPreguntas();
     } catch (e) {
       setError(e.response?.data?.message || 'Error al mover preguntas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMovePreguntaToTema = async (preguntaId, temaId) => {
+    if (!preguntaId || !temaId) {
+      setError('Selecciona el tema destino');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      await preguntasService.update(preguntaId, { temaId });
+      setSuccess('Pregunta movida al nuevo tema');
+      setTimeout(() => setSuccess(null), 3000);
+      await loadPreguntas();
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Error al mover la pregunta');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdatePreguntaOficial = async (preguntaId, esOficial) => {
+    if (!preguntaId) return;
+    try {
+      setLoading(true);
+      setError(null);
+      await preguntasService.update(preguntaId, { esOficial });
+      setPreguntas((prev) => prev.map((p) => (p.id === preguntaId ? { ...p, esOficial } : p)));
+      setSuccess(esOficial ? 'Pregunta marcada como oficial' : 'Pregunta marcada como no oficial');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Error al actualizar oficialidad');
     } finally {
       setLoading(false);
     }
@@ -391,6 +430,7 @@ export const useAdminPreguntasLogic = () => {
             dificultad: 'MEDIUM',
             status: 'PUBLISHED',
             temaId: selectedTema,
+            esOficial: importIsOfficial,
           });
           importadas++;
         } catch (err) {
@@ -590,6 +630,7 @@ export const useAdminPreguntasLogic = () => {
         tip: editingPregunta.tip || '',
         dificultad: editingPregunta.dificultad || 'MEDIUM',
         temaId: editingPregunta.temaId,
+        esOficial: !!editingPregunta.esOficial,
       };
       await preguntasService.update(editingPregunta.id, payload);
       setSuccess('Pregunta actualizada');
@@ -664,6 +705,8 @@ export const useAdminPreguntasLogic = () => {
     // Import text
     importText,
     setImportText,
+    importIsOfficial,
+    setImportIsOfficial,
     selectedOposicion,
     setSelectedOposicion,
     selectedTema,
@@ -743,6 +786,8 @@ export const useAdminPreguntasLogic = () => {
 
     // Handlers
     handleBulkMove,
+    handleMovePreguntaToTema,
+    handleUpdatePreguntaOficial,
     handleImport,
     handleCreateWithImage,
     handleDelete,

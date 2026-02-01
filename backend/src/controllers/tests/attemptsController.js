@@ -134,6 +134,7 @@ export const createTestAttempt = async (req, res, next) => {
         streakCurrent: attempt.streakCurrent,
         streakMax: attempt.streakMax,
       },
+             esOficial: q.pregunta.esOficial,
     });
   } catch (error) {
     next(error);

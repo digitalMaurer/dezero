@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Paper,
   Typography,
@@ -8,6 +8,10 @@ import {
   Select,
   MenuItem,
   Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Table,
   TableBody,
   TableCell,
@@ -17,6 +21,7 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Divider,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -39,6 +44,8 @@ export const AdminPreguntasManage = ({
   setTargetTema,
   targetTemas = [],
   handleBulkMove,
+  handleMovePreguntaToTema,
+  handleUpdatePreguntaOficial,
   selectedIds = [],
   loading,
   toggleAll,
@@ -49,6 +56,37 @@ export const AdminPreguntasManage = ({
   const totalPreguntas = paginationInfo?.total || preguntas.length;
   const currentPage = paginationInfo?.page;
   const totalPages = paginationInfo?.totalPages;
+
+  const [individualOpen, setIndividualOpen] = useState(false);
+  const [individualIndex, setIndividualIndex] = useState(0);
+  const [individualTemaId, setIndividualTemaId] = useState('');
+  const [individualProcessing, setIndividualProcessing] = useState(false);
+
+  const temaFiltro = useMemo(
+    () => temasParaFiltro.find((t) => t.id === filtroTemaPreguntas),
+    [temasParaFiltro, filtroTemaPreguntas]
+  );
+
+  const temasMismaOposicion = useMemo(() => {
+    if (!temaFiltro) return temasParaFiltro;
+    const oposicionId = temaFiltro.oposicionId || temaFiltro.oposicion?.id;
+    if (!oposicionId) return temasParaFiltro;
+    return temasParaFiltro.filter((t) => (t.oposicionId || t.oposicion?.id) === oposicionId);
+  }, [temaFiltro, temasParaFiltro]);
+
+  const currentIndividual = preguntas[individualIndex] || null;
+
+  useEffect(() => {
+    if (!individualOpen) return;
+    if (!preguntas.length) {
+      setIndividualOpen(false);
+      setIndividualIndex(0);
+      return;
+    }
+    if (individualIndex >= preguntas.length) {
+      setIndividualIndex(Math.max(0, preguntas.length - 1));
+    }
+  }, [preguntas, individualIndex, individualOpen]);
 
   return (
     <Box>
@@ -96,6 +134,17 @@ export const AdminPreguntasManage = ({
           </FormControl>
 
           <Box sx={{ ml: 'auto', display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Button
+              variant="contained"
+              disabled={!filtroTemaPreguntas || preguntas.length === 0}
+              onClick={() => {
+                setIndividualIndex(0);
+                setIndividualTemaId('');
+                setIndividualOpen(true);
+              }}
+            >
+              Gestión individual
+            </Button>
             {paginationInfo && (
               <Typography variant="body2" color="textSecondary">
                 Página {currentPage} de {totalPages}
@@ -183,6 +232,7 @@ export const AdminPreguntasManage = ({
                 </TableCell>
                 <TableCell>Enunciado</TableCell>
                 <TableCell>Tema</TableCell>
+                <TableCell>Oficial</TableCell>
                 <TableCell>Dificultad</TableCell>
                 <TableCell>Respuesta</TableCell>
                 <TableCell>Acciones</TableCell>
@@ -199,6 +249,14 @@ export const AdminPreguntasManage = ({
                   </TableCell>
                   <TableCell>{p.enunciado.substring(0, 50)}...</TableCell>
                   <TableCell>{p.tema?.nombre || 'N/A'}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={p.esOficial ? 'Sí' : 'No'}
+                      size="small"
+                      color={p.esOficial ? 'primary' : 'default'}
+                      variant={p.esOficial ? 'filled' : 'outlined'}
+                    />
+                  </TableCell>
                   <TableCell>
                     <Chip
                       label={getDifficultyLabel(p.dificultad)}
@@ -226,6 +284,174 @@ export const AdminPreguntasManage = ({
           </Table>
         </TableContainer>
       )}
+
+      <Dialog 
+        open={individualOpen} 
+        onClose={() => setIndividualOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            borderRadius: '12px',
+          }
+        }}
+      >
+        <DialogTitle 
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            fontWeight: 'bold',
+            fontSize: '0.95rem',
+            padding: '12px 16px',
+            cursor: 'grab',
+            userSelect: 'none',
+            '&:active': { cursor: 'grabbing' },
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <span>📋 Editar pregunta</span>
+          <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>
+            {preguntas.length > 0 ? `${individualIndex + 1}/${preguntas.length}` : 'N/A'}
+          </span>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2, pb: 1 }}>
+          {currentIndividual ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Tema selector - ARRIBA */}
+              <FormControl fullWidth size="small">
+                <InputLabel>Tema destino</InputLabel>
+                <Select
+                  value={individualTemaId}
+                  label="Tema destino"
+                  onChange={(e) => setIndividualTemaId(e.target.value)}
+                  sx={{
+                    backgroundColor: '#f5f7fa',
+                  }}
+                >
+                  {temasMismaOposicion.map((t) => (
+                    <MenuItem key={t.id} value={t.id}>
+                      {t.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {/* Status de oficial - inline */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" color="textSecondary" sx={{ fontWeight: '500' }}>
+                  Estado:
+                </Typography>
+                <Chip
+                  label={currentIndividual.esOficial ? '✓ Oficial' : '✗ No oficial'}
+                  size="small"
+                  color={currentIndividual.esOficial ? 'primary' : 'default'}
+                  variant={currentIndividual.esOficial ? 'filled' : 'outlined'}
+                  sx={{ fontWeight: 'bold' }}
+                />
+              </Box>
+
+              {/* Pregunta - compacta */}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: '600', fontSize: '0.95rem', lineHeight: 1.5, color: '#222' }}>
+                  {currentIndividual.enunciado}
+                </Typography>
+              </Box>
+
+              {/* Opciones - compactas */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 1 }}>
+                {currentIndividual.opcionA && <Typography variant="caption">A) {currentIndividual.opcionA}</Typography>}
+                {currentIndividual.opcionB && <Typography variant="caption">B) {currentIndividual.opcionB}</Typography>}
+                {currentIndividual.opcionC && <Typography variant="caption">C) {currentIndividual.opcionC}</Typography>}
+                {currentIndividual.opcionD && <Typography variant="caption">D) {currentIndividual.opcionD}</Typography>}
+              </Box>
+
+              {/* Respuesta correcta - compacta */}
+              <Box sx={{ backgroundColor: '#e3f2fd', p: 1, borderRadius: 0.8 }}>
+                <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+                  Respuesta: <span style={{ fontWeight: 'bold', color: '#1976d2' }}>{currentIndividual.respuestaCorrecta}</span>
+                </Typography>
+              </Box>
+            </Box>
+          ) : (
+            <Typography>No hay preguntas disponibles.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1, justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              size="small"
+              color="error"
+              variant="outlined"
+              onClick={() => {
+                if (!currentIndividual?.id) return;
+                if (window.confirm('¿Seguro que quieres eliminar esta pregunta?')) {
+                  handleDelete(currentIndividual.id);
+                  if (individualIndex >= preguntas.length - 1) {
+                    setIndividualOpen(false);
+                    setIndividualIndex(0);
+                  }
+                }
+              }}
+              disabled={!currentIndividual || individualProcessing}
+            >
+              🗑️ Eliminar
+            </Button>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              size="small"
+              onClick={async () => {
+                if (!currentIndividual?.id) return;
+                setIndividualProcessing(true);
+                await handleUpdatePreguntaOficial(currentIndividual.id, !currentIndividual.esOficial);
+                setIndividualProcessing(false);
+              }}
+              disabled={!currentIndividual || individualProcessing}
+            >
+              {currentIndividual?.esOficial ? '📌 Quitar oficial' : '📍 Marcar oficial'}
+            </Button>
+
+            <Button
+              size="small"
+              onClick={() => {
+                if (individualIndex < preguntas.length - 1) {
+                  setIndividualIndex((prev) => prev + 1);
+                } else {
+                  setIndividualOpen(false);
+                  setIndividualIndex(0);
+                }
+              }}
+            >
+              ⏭️ Siguiente
+            </Button>
+
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              disabled={!individualTemaId || !currentIndividual || individualProcessing}
+              onClick={async () => {
+                if (!currentIndividual?.id || !individualTemaId) return;
+                setIndividualProcessing(true);
+                await handleMovePreguntaToTema(currentIndividual.id, individualTemaId);
+                setIndividualProcessing(false);
+                if (individualIndex < preguntas.length - 1) {
+                  setIndividualIndex((prev) => prev + 1);
+                } else {
+                  setIndividualOpen(false);
+                  setIndividualIndex(0);
+                }
+              }}
+            >
+              ✅ Mover a tema
+            </Button>
+          </Box>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
