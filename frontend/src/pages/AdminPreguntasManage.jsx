@@ -22,6 +22,7 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  TextField,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -46,6 +47,7 @@ export const AdminPreguntasManage = ({
   handleBulkMove,
   handleMovePreguntaToTema,
   handleUpdatePreguntaOficial,
+  handleUpdatePreguntaField,
   selectedIds = [],
   loading,
   toggleAll,
@@ -58,6 +60,8 @@ export const AdminPreguntasManage = ({
   const totalPages = paginationInfo?.totalPages;
 
   const [individualOpen, setIndividualOpen] = useState(false);
+  const [editingField, setEditingField] = useState(null);
+  const [editValue, setEditValue] = useState('');
   const [individualIndex, setIndividualIndex] = useState(0);
   const [individualTemaId, setIndividualTemaId] = useState('');
   const [individualProcessing, setIndividualProcessing] = useState(false);
@@ -312,7 +316,7 @@ export const AdminPreguntasManage = ({
             alignItems: 'center',
           }}
         >
-          <span>📋 Editar pregunta</span>
+          <span>📋 {currentIndividual?.tema?.nombre || 'Tema'}</span>
           <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>
             {preguntas.length > 0 ? `${individualIndex + 1}/${preguntas.length}` : 'N/A'}
           </span>
@@ -353,26 +357,308 @@ export const AdminPreguntasManage = ({
                 />
               </Box>
 
-              {/* Pregunta - compacta */}
+              {/* Pregunta - EDITABLE */}
               <Box>
-                <Typography variant="body2" sx={{ fontWeight: '600', fontSize: '0.95rem', lineHeight: 1.5, color: '#222' }}>
-                  {currentIndividual.enunciado}
-                </Typography>
+                {editingField === 'enunciado' ? (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                    <TextField
+                      autoFocus
+                      fullWidth
+                      multiline
+                      rows={2}
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      size="small"
+                      variant="outlined"
+                    />
+                    <Box sx={{ display: 'flex', gap: 0.5, pt: 0.5 }}>
+                      <Button
+                        size="small"
+                        sx={{ minWidth: '30px', p: '4px' }}
+                        onClick={async () => {
+                          await handleUpdatePreguntaField(currentIndividual.id, 'enunciado', editValue);
+                          setEditingField(null);
+                          setEditValue('');
+                        }}
+                      >
+                        ✓
+                      </Button>
+                      <Button
+                        size="small"
+                        sx={{ minWidth: '30px', p: '4px' }}
+                        onClick={() => {
+                          setEditingField(null);
+                          setEditValue('');
+                        }}
+                      >
+                        ✕
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      fontWeight: '600', 
+                      fontSize: '1.05rem', 
+                      lineHeight: 1.6, 
+                      color: '#222',
+                      cursor: 'pointer',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      '&:hover': { backgroundColor: '#f0f0f0' }
+                    }}
+                    onClick={() => {
+                      setEditingField('enunciado');
+                      setEditValue(currentIndividual.enunciado);
+                    }}
+                  >
+                    {currentIndividual.enunciado}
+                  </Typography>
+                )}
               </Box>
 
-              {/* Opciones - compactas */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 1 }}>
-                {currentIndividual.opcionA && <Typography variant="caption">A) {currentIndividual.opcionA}</Typography>}
-                {currentIndividual.opcionB && <Typography variant="caption">B) {currentIndividual.opcionB}</Typography>}
-                {currentIndividual.opcionC && <Typography variant="caption">C) {currentIndividual.opcionC}</Typography>}
-                {currentIndividual.opcionD && <Typography variant="caption">D) {currentIndividual.opcionD}</Typography>}
+              {/* Opciones - EDITABLES */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pl: 1 }}>
+                {['opcionA', 'opcionB', 'opcionC', 'opcionD'].map((field, idx) => {
+                  const letra = String.fromCharCode(65 + idx); // A, B, C, D
+                  const value = currentIndividual[field];
+                  if (!value) return null;
+
+                  return (
+                    <Box key={field}>
+                      {editingField === field ? (
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                          <TextField
+                            autoFocus
+                            fullWidth
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            size="small"
+                            variant="outlined"
+                            inputProps={{ style: { fontSize: '0.85rem' } }}
+                          />
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <Button
+                              size="small"
+                              sx={{ minWidth: '30px', p: '4px' }}
+                              onClick={async () => {
+                                await handleUpdatePreguntaField(currentIndividual.id, field, editValue);
+                                setEditingField(null);
+                                setEditValue('');
+                              }}
+                            >
+                              ✓
+                            </Button>
+                            <Button
+                              size="small"
+                              sx={{ minWidth: '30px', p: '4px' }}
+                              onClick={() => {
+                                setEditingField(null);
+                                setEditValue('');
+                              }}
+                            >
+                              ✕
+                            </Button>
+                          </Box>
+                        </Box>
+                      ) : (
+                        <Typography 
+                          variant="body2"
+                          sx={{
+                            display: 'block',
+                            cursor: 'pointer',
+                            padding: '6px',
+                            borderRadius: '4px',
+                            fontSize: '0.95rem',
+                            '&:hover': { backgroundColor: '#f0f0f0' }
+                          }}
+                          onClick={() => {
+                            setEditingField(field);
+                            setEditValue(value);
+                          }}
+                        >
+                          {letra}) {value}
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                })}
               </Box>
 
-              {/* Respuesta correcta - compacta */}
+              {/* Respuesta correcta - EDITABLE */}
               <Box sx={{ backgroundColor: '#e3f2fd', p: 1, borderRadius: 0.8 }}>
-                <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
-                  Respuesta: <span style={{ fontWeight: 'bold', color: '#1976d2' }}>{currentIndividual.respuestaCorrecta}</span>
-                </Typography>
+                {editingField === 'respuestaCorrecta' ? (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Typography variant="caption" color="textSecondary">
+                      Respuesta:
+                    </Typography>
+                    <TextField
+                      autoFocus
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value.toUpperCase())}
+                      size="small"
+                      inputProps={{ maxLength: 1, style: { width: '40px', textAlign: 'center', fontWeight: 'bold' } }}
+                    />
+                    <Button
+                      size="small"
+                      sx={{ minWidth: '30px', p: '4px' }}
+                      onClick={async () => {
+                        await handleUpdatePreguntaField(currentIndividual.id, 'respuestaCorrecta', editValue);
+                        setEditingField(null);
+                        setEditValue('');
+                      }}
+                    >
+                      ✓
+                    </Button>
+                    <Button
+                      size="small"
+                      sx={{ minWidth: '30px', p: '4px' }}
+                      onClick={() => {
+                        setEditingField(null);
+                        setEditValue('');
+                      }}
+                    >
+                      ✕
+                    </Button>
+                  </Box>
+                ) : (
+                  <Typography 
+                    variant="caption" 
+                    color="textSecondary" 
+                    sx={{ display: 'block', cursor: 'pointer' }}
+                    onClick={() => {
+                      setEditingField('respuestaCorrecta');
+                      setEditValue(currentIndividual.respuestaCorrecta);
+                    }}
+                  >
+                    Respuesta: <span style={{ fontWeight: 'bold', color: '#1976d2' }}>{currentIndividual.respuestaCorrecta}</span>
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Tip - EDITABLE */}
+              <Box sx={{ backgroundColor: '#fff3cd', p: 1, borderRadius: 0.8, border: '1px solid #ffc107' }}>
+                {editingField === 'tip' ? (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                    <TextField
+                      autoFocus
+                      fullWidth
+                      multiline
+                      rows={2}
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      size="small"
+                      variant="outlined"
+                      placeholder="Agregar un tip..."
+                    />
+                    <Box sx={{ display: 'flex', gap: 0.5, pt: 0.5 }}>
+                      <Button
+                        size="small"
+                        sx={{ minWidth: '30px', p: '4px' }}
+                        onClick={async () => {
+                          await handleUpdatePreguntaField(currentIndividual.id, 'tip', editValue);
+                          setEditingField(null);
+                          setEditValue('');
+                        }}
+                      >
+                        ✓
+                      </Button>
+                      <Button
+                        size="small"
+                        sx={{ minWidth: '30px', p: '4px' }}
+                        onClick={() => {
+                          setEditingField(null);
+                          setEditValue('');
+                        }}
+                      >
+                        ✕
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      cursor: 'pointer',
+                      padding: '6px',
+                      borderRadius: '4px',
+                      '&:hover': { backgroundColor: 'rgba(255, 193, 7, 0.1)' }
+                    }}
+                    onClick={() => {
+                      setEditingField('tip');
+                      setEditValue(currentIndividual.tip || '');
+                    }}
+                  >
+                    <Typography variant="body2" color="textSecondary" sx={{ display: 'block', fontWeight: '500' }}>
+                      💡 Tip:
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#856404' }}>
+                      {currentIndividual.tip || '(sin tip)'}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+
+              {/* Explicación - EDITABLE */}
+              <Box sx={{ backgroundColor: '#d1ecf1', p: 1, borderRadius: 0.8, border: '1px solid #17a2b8' }}>
+                {editingField === 'explicacion' ? (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                    <TextField
+                      autoFocus
+                      fullWidth
+                      multiline
+                      rows={3}
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      size="small"
+                      variant="outlined"
+                      placeholder="Agregar una explicación..."
+                    />
+                    <Box sx={{ display: 'flex', gap: 0.5, pt: 0.5 }}>
+                      <Button
+                        size="small"
+                        sx={{ minWidth: '30px', p: '4px' }}
+                        onClick={async () => {
+                          await handleUpdatePreguntaField(currentIndividual.id, 'explicacion', editValue);
+                          setEditingField(null);
+                          setEditValue('');
+                        }}
+                      >
+                        ✓
+                      </Button>
+                      <Button
+                        size="small"
+                        sx={{ minWidth: '30px', p: '4px' }}
+                        onClick={() => {
+                          setEditingField(null);
+                          setEditValue('');
+                        }}
+                      >
+                        ✕
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      cursor: 'pointer',
+                      padding: '6px',
+                      borderRadius: '4px',
+                      '&:hover': { backgroundColor: 'rgba(23, 162, 184, 0.1)' }
+                    }}
+                    onClick={() => {
+                      setEditingField('explicacion');
+                      setEditValue(currentIndividual.explicacion || '');
+                    }}
+                  >
+                    <Typography variant="body2" color="textSecondary" sx={{ display: 'block', fontWeight: '500' }}>
+                      📖 Explicación:
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#0c5460' }}>
+                      {currentIndividual.explicacion || '(sin explicación)'}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             </Box>
           ) : (
@@ -380,6 +666,19 @@ export const AdminPreguntasManage = ({
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1, justifyContent: 'space-between' }}>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => {
+              setIndividualOpen(false);
+              setIndividualIndex(0);
+              setEditingField(null);
+              setEditValue('');
+            }}
+          >
+            ✕ Cerrar
+          </Button>
+
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
               size="small"
@@ -399,9 +698,7 @@ export const AdminPreguntasManage = ({
             >
               🗑️ Eliminar
             </Button>
-          </Box>
 
-          <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
               size="small"
               onClick={async () => {

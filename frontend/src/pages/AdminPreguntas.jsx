@@ -91,6 +91,7 @@ export const AdminPreguntas = () => {
     handleBulkMove,
     handleMovePreguntaToTema,
     handleUpdatePreguntaOficial,
+    handleUpdatePreguntaField,
     handleImport,
     handleCreateWithImage,
     handleDelete,
@@ -191,6 +192,7 @@ export const AdminPreguntas = () => {
             handleBulkMove={handleBulkMove}
             handleMovePreguntaToTema={handleMovePreguntaToTema}
             handleUpdatePreguntaOficial={handleUpdatePreguntaOficial}
+            handleUpdatePreguntaField={handleUpdatePreguntaField}
             selectedIds={selectedIds}
             loading={loading}
             toggleAll={toggleAll}

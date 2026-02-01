@@ -2,6 +2,32 @@
 
 ## 2026-02-01
 
+### Sistema de preguntas oficiales y gestión individual mejorada
+- **Backend**:
+  - `schema.prisma`: agregado campo `esOficial Boolean @default(false)` a modelo `Pregunta`.
+  - `preguntasController.js`: validación de boolean `esOficial` en create/update, exportación en todas las respuestas.
+  - `attemptsController.js`: incluye `tema` y `esOficial` en respuestas de test.
+  - `manicomioController.js`: incluye `esOficial` en response del siguiente ejercicio.
+
+- **Frontend**:
+  - `AdminPreguntasManage.jsx`: nuevo diálogo de gestión individual con UI compacta.
+    - Tema selector arriba para cambiar asignación.
+    - Mostrar estado oficial/no oficial.
+    - Botones en una línea: Eliminar | Marcar/Quitar oficial | Siguiente | Mover a tema.
+    - Header azul con gradiente y contador de pregunta (ej: 1/50).
+  - `QuestionActions.jsx` (en TestTake): chip interactivo mostrando "Oficial"/"No oficial", clickeable por admins.
+  - `TestTake.jsx`: función `handleToggleOficial` para cambiar estado durante test.
+  - `AdminPreguntasImportText.jsx`: checkbox "Marcar todas como oficiales" al importar preguntas.
+  - `AdminPreguntasEditDialog.jsx`: checkbox para marcar pregunta como oficial en la edición.
+  - `useAdminPreguntasLogic.js`: funciones `handleMovePreguntaToTema`, `handleUpdatePreguntaOficial`.
+
+- **Funcionalidad**:
+  - Campo `esOficial` visible en tabla de preguntas (chip: Sí/No con colores).
+  - Gestión individual: navegar 1-a-1 por preguntas, cambiar tema, marcar oficial, eliminar.
+  - Importación masiva con opción de marcar todas como oficiales.
+  - En tests: admins pueden ver y cambiar estado oficial de preguntas durante el test.
+  - Fallback seguro: `esOficial ?? false` si falta en cache.
+
 ### Visualización de tema en tests online con toggle
 - **Backend**:
   - `attemptsController.js`: incluye `tema` en la respuesta de `createTestAttempt` y `getTestAttempt`.

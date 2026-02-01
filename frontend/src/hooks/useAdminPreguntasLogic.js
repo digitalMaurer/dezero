@@ -210,6 +210,26 @@ export const useAdminPreguntasLogic = () => {
     }
   };
 
+  const handleUpdatePreguntaField = async (preguntaId, fieldName, fieldValue) => {
+    if (!preguntaId || !fieldName) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const updateData = { [fieldName]: fieldValue };
+      await preguntasService.update(preguntaId, updateData);
+      setPreguntas((prev) => 
+        prev.map((p) => (p.id === preguntaId ? { ...p, [fieldName]: fieldValue } : p))
+      );
+      setSuccess('Campo actualizado correctamente');
+      setTimeout(() => setSuccess(null), 2000);
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || `Error al actualizar ${fieldName}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadOposiciones = async () => {
     try {
       const response = await oposicionesService.getAll();
@@ -788,6 +808,7 @@ export const useAdminPreguntasLogic = () => {
     handleBulkMove,
     handleMovePreguntaToTema,
     handleUpdatePreguntaOficial,
+    handleUpdatePreguntaField,
     handleImport,
     handleCreateWithImage,
     handleDelete,
