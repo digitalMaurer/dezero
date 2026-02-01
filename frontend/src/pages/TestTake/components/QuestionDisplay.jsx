@@ -13,6 +13,7 @@ export const QuestionDisplay = ({
   respuesta,
   onRespuestaChange,
   disabled = false,
+  showTema = true,
 }) => {
   if (!question) {
     return <Typography>Cargando pregunta...</Typography>;
@@ -26,6 +27,11 @@ export const QuestionDisplay = ({
         <Typography variant="h6" component="div" sx={{ mb: 1, fontWeight: 'bold' }}>
           {question.titulo}
         </Typography>
+        {showTema && question.tema?.nombre && (
+          <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
+            Tema: {question.tema.nombre}
+          </Typography>
+        )}
         <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
           {question.enunciado}
         </Typography>

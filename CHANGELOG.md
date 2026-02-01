@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-02-01
+
+### Visualización de tema en tests online con toggle
+- **Backend**:
+  - `attemptsController.js`: incluye `tema` en la respuesta de `createTestAttempt` y `getTestAttempt`.
+  - Todas las preguntas del test ahora incluyen información del tema desde el inicio.
+
+- **Frontend**:
+  - `useTestData.js`: mantiene campo `tema` en el mapeo de preguntas y fuerza recarga si el cache no contiene temas.
+  - `QuestionDisplay.jsx`: muestra el nombre del tema encima del enunciado (condicional con prop `showTema`).
+  - `TestActionsBar.jsx`: nuevo botón "Mostrar/Ocultar tema" junto a Rendirse, Eliminar y Exportar PDF.
+  - `TestTake.jsx`: estado `showTema` que permite al usuario ocultar/mostrar el tema en todas las preguntas.
+  
+- **Funcionalidad**:
+  - El tema se muestra por defecto durante el test online (igual que en el PDF exportado).
+  - El usuario puede ocultarlo pulsando el botón "🙈 Ocultar tema" o mostrarlo con "👁️ Mostrar tema".
+  - Aplica tanto en vista individual como en vista de lista.
 
 ## 2026-01-29
 

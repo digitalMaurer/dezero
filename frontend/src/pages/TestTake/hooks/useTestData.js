@@ -37,7 +37,9 @@ export const useTestData = (attemptId) => {
           }
 
           // Validar cache; si está incompleta, ignorar y forzar fetch
-          const cacheIsValid = Array.isArray(parsed.preguntas) && parsed.preguntas.every(isPreguntaValid);
+          const cacheIsValid = Array.isArray(parsed.preguntas)
+            && parsed.preguntas.every(isPreguntaValid)
+            && parsed.preguntas.every((p) => p?.tema?.nombre);
           if (cacheIsValid) {
             const normalized = {
               ...parsed,
@@ -86,6 +88,7 @@ export const useTestData = (attemptId) => {
                 dificultad: base?.dificultad,
                 orden: q.orden || base?.orden || 0,
                 respuestaCorrecta: base?.respuestaCorrecta,
+                tema: base?.tema,
               };
               console.debug('[useTestData] mapped:', mapped);
               console.debug('[useTestData] isPreguntaValid:', isPreguntaValid(mapped));
@@ -108,6 +111,7 @@ export const useTestData = (attemptId) => {
               dificultad: p.dificultad || 'media',
               orden: p.orden || 0,
               respuestaCorrecta: p.respuestaCorrecta,
+              tema: p.tema,
             }));
           }
 

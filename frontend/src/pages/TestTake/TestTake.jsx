@@ -68,6 +68,7 @@ export const TestTake = () => {
   const [viewMode, setViewMode] = useState('list'); // 'list' o 'single'
   const [error, setError] = useState(null);
   const [exportingPDF, setExportingPDF] = useState(false);
+  const [showTema, setShowTema] = useState(true);
 
   // Hook específico para MANICOMIO
   const manicomioLogic = useManicomioLogic(
@@ -326,6 +327,8 @@ export const TestTake = () => {
           onSurrender={() => setOpenSurrenderDialog(true)}
           onDelete={() => setOpenDeleteDialog(true)}
           onExportPDF={handleExportPDF}
+          onToggleTema={() => setShowTema((prev) => !prev)}
+          showTema={showTema}
           surrendering={surrendering}
           deleting={deleting}
           exportingPDF={exportingPDF}
@@ -385,6 +388,7 @@ export const TestTake = () => {
                     respuesta={currentRespuesta}
                     onRespuestaChange={handleAnswerChange}
                     disabled={manicomioLogic.loading || (isSequential && pendingManicomioResult)}
+                    showTema={showTema}
                   />
 
                   {/* Feedback: Ya respondiste esta pregunta (MANICOMIO) */}
@@ -456,6 +460,7 @@ export const TestTake = () => {
                         safeSetItem(`attempt_${attemptId}_respuestas`, JSON.stringify({ ...respuestas, [pregunta.id]: value }));
                       }}
                       disabled={false}
+                      showTema={showTema}
                     />
 
                     <QuestionActions

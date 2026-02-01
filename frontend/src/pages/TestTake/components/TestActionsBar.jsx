@@ -7,12 +7,26 @@ export const TestActionsBar = ({
   onSurrender,
   onDelete,
   onExportPDF,
+  onToggleTema,
+  showTema,
   surrendering,
   deleting,
   exportingPDF,
 }) => {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
+      <Tooltip title={showTema ? 'Ocultar tema en preguntas' : 'Mostrar tema en preguntas'}>
+        <span>
+          <Button
+            variant="outlined"
+            color="secondary"
+            size="small"
+            onClick={onToggleTema}
+          >
+            {showTema ? '🙈 Ocultar tema' : '👁️ Mostrar tema'}
+          </Button>
+        </span>
+      </Tooltip>
       <Tooltip title="Finalizar el test y ver resultados">
         <span>
           <Button

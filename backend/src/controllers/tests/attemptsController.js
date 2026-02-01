@@ -67,7 +67,11 @@ export const createTestAttempt = async (req, res, next) => {
         include: {
           questions: {
             include: {
-              pregunta: true,
+              pregunta: {
+                include: {
+                  tema: true,
+                },
+              },
             },
             orderBy: {
               orden: 'asc',
@@ -111,6 +115,7 @@ export const createTestAttempt = async (req, res, next) => {
         opcionD: shuffled.opcionD,
         dificultad: shuffled.dificultad,
         orden: q.orden,
+        tema: q.pregunta.tema,
       };
     });
 
@@ -373,7 +378,11 @@ export const getTestAttempt = async (req, res, next) => {
           include: {
             questions: {
               include: {
-                pregunta: true,
+                pregunta: {
+                  include: {
+                    tema: true,
+                  },
+                },
               },
               orderBy: {
                 orden: 'asc',

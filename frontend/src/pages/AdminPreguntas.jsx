@@ -281,12 +281,16 @@ export const AdminPreguntas = () => {
           <Typography>¿Deseas marcar el reporte como resuelto y eliminarlo?</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowResolveModal(false)} color="inherit">No</Button>
+          <Button onClick={() => {
+            setShowResolveModal(false);
+            setTabValue(4); // Volver a la pestaña de reportes
+          }} color="inherit">No</Button>
           <Button
             onClick={async () => {
               await handleDeleteReport(reportToResolve);
               setShowResolveModal(false);
               setReportToResolve(null);
+              setTabValue(4); // Volver a la pestaña de reportes
             }}
             color="primary"
             variant="contained"
